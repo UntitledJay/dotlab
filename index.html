@@ -78,7 +78,19 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--acce
 .swap{font-size:11px;color:var(--muted);background:none;border:0;cursor:pointer;padding:2px 6px;border-radius:6px}
 .swap:hover{background:var(--panel-2);color:var(--fg)}
 
-.stagecol{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:8px;min-width:0;min-height:0}
+.stagecol{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:8px;min-width:0;min-height:0}
+.doctabs{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;margin-bottom:-2px}
+.doctabs::-webkit-scrollbar{display:none}
+.dtab{display:flex;align-items:center;gap:7px;flex:none;max-width:200px;height:32px;padding:0 4px 0 6px;border-radius:10px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:500;transition:background .12s,color .12s}
+.dtab:hover{background:var(--hover);color:var(--fg)}
+.dtab.on{background:var(--panel);color:var(--fg);box-shadow:var(--shadow-sm)}
+.dtab .tthumb{width:20px;height:20px;border-radius:5px;image-rendering:pixelated;object-fit:contain;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
+.dtab .tname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtab .tclose{width:22px;height:22px;flex:none;border:0;background:transparent;border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.55}
+.dtab:hover .tclose,.dtab.on .tclose{opacity:1}
+.dtab .tclose:hover{background:var(--panel-2);color:var(--fg)}
+.tadd{width:30px;height:30px;flex:none;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:17px;cursor:pointer;padding:0}
+.tadd:hover{background:var(--hover);color:var(--fg)}
 .toolopts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:var(--panel);border-radius:14px;padding:6px 12px;min-height:42px;box-shadow:var(--shadow)}
 .toolopts .tname{font-weight:600}
 .toolopts .hint{color:var(--muted);font-size:12px}
@@ -336,6 +348,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
     </nav>
 
     <section class="stagecol">
+      <div class="doctabs" id="docTabs" role="tablist" aria-label="열린 캔버스"></div>
       <div class="toolopts" id="toolOpts"></div>
       <div class="stage" id="stage"><canvas id="view"></canvas><div class="drop" id="dropHint" hidden>파일을 놓으면 열립니다</div></div>
       <div class="status"><span>좌표 <span class="mono" id="stPos">–</span></span><span id="stSize"></span><span id="stHint"></span></div>
@@ -1097,8 +1110,9 @@ function deserialize(o){
   const d={name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags}; if(comp) d.comp=comp; return d;
 }
 let saveT=null;
-function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',serialize()); }catch(e){} },700); }
-function loadAutosave(){ try{ const s=localStorage.getItem('dotlab.autosave'); if(!s) return null; return deserialize(JSON.parse(s)); }catch(e){ return null; } }
+// autosave keeps every open canvas (workspaceData / parseWorkspace in tabs.js)
+function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',workspaceData()); }catch(e){} },700); }
+function loadAutosave(){ try{ const s=localStorage.getItem('dotlab.autosave'); return s?parseWorkspace(s):null; }catch(e){ return null; } }
 function replaceDoc(nd){ if(!nd.tags) nd.tags=[]; ui.playTag=-1; docChange(()=>{ doc=nd; ui.layer=doc.layers.length-1; ui.frame=0; }); setSel(null); ui.lastPt=null; resetTL(); fitView(); }
 /* ================= language: 한국어 / English =================
    The source is written in Korean. In English mode a MutationObserver translates every text node and the
@@ -1141,7 +1155,7 @@ const I18N={lang:'ko',en:{
 '클릭: 주 색상 · 오른쪽 클릭: 보조 색상 · 더블클릭: 색 편집':'Click: primary · right click: secondary · double-click: edit','색 추가':'Add colour','편집':'Edit','램프':'Ramp','프리셋':'Presets','가져오기':'Import','주 색상에서 보조 색상까지 중간색 만들기':'Make in-between colours from primary to secondary',
 '더블클릭해 이름 바꾸기':'Double-click to rename','레이어 이름':'Layer name','숨기기':'Hide','레이어 숨기기':'Hide layer','레이어 보이기':'Show layer','알파 잠금':'Alpha lock','외곽선 효과':'Outline effect','외곽':'Outline','잠금 풀기':'Unlock','잠그기':'Lock','레이어 잠금 풀기':'Unlock layer','레이어 잠그기':'Lock layer',
 '이미 칠한 픽셀만 다시 칠합니다':'Only repaints pixels that are already painted','켜는 순간의 주 색상으로 1px 외곽선을 그립니다. 원본 픽셀은 바뀌지 않습니다.':'Draws a 1px outline in the primary colour at the moment you turn it on. The pixels themselves don\'t change.',
-'투명':'Transparent','도트랩 에디터':'DotLab editor','도트랩':'DotLab','캔버스 전체':'whole canvas','팔레트 모음':'Palette shelf','모음':'Shelf','여러 팔레트를 한눈에 보고 색을 가져옵니다':'See several palettes at once and pick colours from them','지금 팔레트 저장':'Save current palette','저장한 팔레트':'Saved palettes','지금 팔레트':'Current palette','바꾸기':'Use',
+'투명':'Transparent','열린 캔버스':'Open canvases','캔버스 닫기':'Close canvas','새 캔버스 (새 탭)':'New canvas (new tab)','새 탭으로 열립니다. 지금 캔버스는 원래 탭에 그대로 남습니다.':'Opens in a new tab. The current canvas stays in its own tab.','도트랩 에디터':'DotLab editor','도트랩':'DotLab','캔버스 전체':'whole canvas','팔레트 모음':'Palette shelf','모음':'Shelf','여러 팔레트를 한눈에 보고 색을 가져옵니다':'See several palettes at once and pick colours from them','지금 팔레트 저장':'Save current palette','저장한 팔레트':'Saved palettes','지금 팔레트':'Current palette','바꾸기':'Use',
 '이 팔레트로 바꾸기':'Switch to this palette','팔레트 이름':'Palette name','팔레트 저장':'Save palette','모음에 저장':'Save to shelf','팔레트를 모음에 저장했습니다':'Saved the palette to the shelf','팔레트를 지웠습니다':'Deleted the palette','팔레트 삭제':'Delete palette',
 '색을 클릭하면 주 색상으로, 오른쪽 클릭하면 보조 색상으로 씁니다. 지금 팔레트에 없는 색은 끝에 추가됩니다.':'Click a colour to use it as primary, right click for secondary. Colours not in the current palette are added at the end.',
 '아직 저장한 팔레트가 없습니다. 지금 팔레트나 AI가 만든 팔레트를 저장해 두면 여기서 함께 볼 수 있습니다.':'No saved palettes yet. Save the current palette or one the AI made, and it shows up here.',
@@ -1248,7 +1262,11 @@ pats:[
  ['{}×{} (캔버스 전체)','{1}×{2} (whole canvas)'],['현재 팔레트의 {}색만 사용해 그립니다. 결과는 그리드에 딱 맞는 인덱스 픽셀이라 바로 손으로 다듬을 수 있습니다.','Draws with only the {1} colours of the current palette. The result is indexed pixels on the grid, ready to polish by hand.'],
  ['선택한 {}×{} 영역만 다시 그립니다. 주변 픽셀과 이어지도록 맞춥니다.','Redraws only the selected {1}×{2} area, matching the pixels around it.'],['그리는 중… {}/{}줄','Drawing… {1}/{2} rows'],['수정: {}','Edit: {1}'],['{} · {}색','{1} · {2} colours'],['팔레트 적용: {}','Apply palette: {1}'],
  ['저장된 키 …{}','Saved key …{1}'],['{}번 프레임 하나를 넣습니다.','Inserts frame {1} only.'],['프레임 {}개를 가로로 나란히 담은 프레임으로 넣습니다.','Inserts all {1} frames side by side in one frame.'],['컴포넌트로 넣기 (상태 {}개 → 변형)','Insert as a component ({1} states → variants)'],['연결된 개체 「{}」를 이 결과로 교체','Replace the linked object "{1}" with this'],
- ['Figma 선택: {} 외 {}개','Figma selection: {1} and {2} more'],['Figma 선택: {}','Figma selection: {1}'],['{}색','{1} colours'],
+ ['Figma 선택: {} 외 {}개','Figma selection: {1} and {2} more'],['Figma 선택: {}','Figma selection: {1}'],['「{}」 닫기','Close "{1}"'],
+ ['「{}」을(를) 닫습니다. 실행 취소 기록도 함께 사라집니다. 보관하려면 먼저 저장하세요.','Closes "{1}" along with its undo history. Save it first to keep it.'],
+ ['캔버스는 {}개까지 열 수 있어 지금 탭을 바꿨습니다. Ctrl+Z로 되돌릴 수 있습니다.','Up to {1} canvases can be open, so the current tab was replaced. Ctrl+Z undoes it.'],
+ ['{}×{} 새 캔버스(새 탭)로 열었습니다. 바로 수정하세요. 이전 작업은 원래 탭에 그대로 있습니다.','Opened as a new {1}×{2} canvas in a new tab. Edit away; the previous work is still in its own tab.'],
+ ['{} · {}×{}','{1} · {2}×{3}'],['{}색','{1} colours'],
  // generic shapes last, so the specific sentences above win
  ['{} ({})','{1} ({2})'],
 ]};
@@ -1407,6 +1425,7 @@ function drawThumb(cv,data){ cv.width=doc.w; cv.height=doc.h; cv.getContext('2d'
 function updateThumbs(){
   for(const [cv,id] of layerThumbs) drawThumb(cv,composite(ui.frame,id));
   frameThumbs.forEach((cv,i)=>{ cv.width=doc.w; cv.height=doc.h; cv.getContext('2d').drawImage(frameCanvas(i),0,0); });
+  updTabThumb();
 }
 function renderLayers(){
   const list=$('#layerList'); list.textContent=''; layerThumbs=[];
@@ -1487,7 +1506,7 @@ function updStatus(p){
 function toggleBtn(id,key,after){ const b=$(id); b.setAttribute('aria-pressed',String(!!ui[key])); b.onclick=()=>{ ui[key]=!ui[key]; b.setAttribute('aria-pressed',String(ui[key])); after&&after(); requestDraw(); }; }
 function refreshAll(){
   updPal(); invalidate(); renderColors(); renderPalette(); renderLayers(); renderTimeline(); renderToolOpts(); renderAISize(); renderEditHint(); renderCands(); renderComp();
-  $('#docName').value=doc.name; updStatus(); updHistBtns(); requestDraw();
+  $('#docName').value=doc.name; updStatus(); updHistBtns(); renderTabs(); requestDraw();
 }
 
 /* ================= modal ================= */
@@ -1507,8 +1526,8 @@ function newDialog(){
   const wi=h('input',{type:'number',min:1,max:MAXSIZE,value:W,'aria-label':'너비',style:'width:80px'}), hi=h('input',{type:'number',min:1,max:MAXSIZE,value:H,'aria-label':'높이',style:'width:80px'});
   const sizes=h('div',{class:'sizes'},[8,16,24,32,48,64,128].map(s=>h('button',{class:'btn sm',text:`${s}×${s}`,onclick:()=>{ wi.value=s; hi.value=s; }})));
   const ps=h('select',{'aria-label':'팔레트'},h('option',{value:'',text:'지금 쓰는 팔레트 유지'}),Object.keys(PRESETS).map(k=>h('option',{value:k,text:k})));
-  modal({title:'새 캔버스',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},sizes,h('div',{class:'row2'},h('label',null,'너비',wi),h('label',null,'높이',hi),h('span',{class:'hint',text:`최대 ${MAXSIZE}px`})),h('label',{class:'row2',style:'color:var(--muted)'},'팔레트 ',ps),h('p',{class:'hint',text:'지금 작업은 실행 취소(Ctrl+Z)로 되돌릴 수 있습니다. 보관하려면 먼저 저장하세요.'})),
-    actions:[{label:'취소'},{label:'만들기',primary:true,onClick:()=>{ const w=clamp(wi.value|0,1,MAXSIZE), hh=clamp(hi.value|0,1,MAXSIZE); const pal=ps.value?PRESETS[ps.value]:doc.palette; replaceDoc(makeDoc(w,hh,pal,'새 작품')); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; renderColors(); renderPalette(); }}]});
+  modal({title:'새 캔버스',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},sizes,h('div',{class:'row2'},h('label',null,'너비',wi),h('label',null,'높이',hi),h('span',{class:'hint',text:`최대 ${MAXSIZE}px`})),h('label',{class:'row2',style:'color:var(--muted)'},'팔레트 ',ps),h('p',{class:'hint',text:'새 탭으로 열립니다. 지금 캔버스는 원래 탭에 그대로 남습니다.'})),
+    actions:[{label:'취소'},{label:'만들기',primary:true,onClick:()=>{ const w=clamp(wi.value|0,1,MAXSIZE), hh=clamp(hi.value|0,1,MAXSIZE); const pal=ps.value?PRESETS[ps.value]:doc.palette; openDoc(makeDoc(w,hh,pal,L('새 작품'))); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; renderColors(); renderPalette(); }}]});
 }
 function editColor(v,isNew){
   if(!isNew&&!v){ toast('투명은 편집할 수 없습니다. 다른 색을 고르세요.'); return; }
@@ -1668,10 +1687,10 @@ function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createO
 async function handleFile(f){
   if(!f) return; const n=f.name.toLowerCase();
   try{
-    if(n.endsWith('.json')){ const o=JSON.parse(await readText(f)); if(o&&o.format==='dotlab-library'){ libImport(o); return; } const nd=deserialize(o); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
+    if(n.endsWith('.json')){ const o=JSON.parse(await readText(f)); if(o&&o.format==='dotlab-library'){ libImport(o); return; } const nd=deserialize(o); openDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
     else if(/\.(hex|gpl|txt)$/.test(n)){ const cols=parsePaletteText(await readText(f)); if(!cols.length) throw new Error('파일에서 색을 찾지 못했습니다'); presetDialog(cols,`팔레트 가져오기 (${cols.length}색)`); }
     else if(f.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)){ showTab('pConv'); await setConvImage(f); }
-    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); replaceDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }
+    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); openDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }
     else toast('열 수 없는 파일 형식입니다');
   }catch(e){ toast(e.message||'파일을 열지 못했습니다'); }
 }
@@ -2034,8 +2053,8 @@ async function setConvImage(f){
 function convOpenNew(){
   const r=buildConv('new'); if(!r) return;
   const nd=makeDoc(r.w,r.h,r.palette,conv.name||'가져온 이미지'); nd.layers[0].name='가져온 이미지'; nd.frames[0].cels[1].set(r.vals);
-  replaceDoc(nd); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; setTool('pencil'); renderColors(); renderPalette();
-  toast(`${r.w}×${r.h} 새 캔버스로 열었습니다. 바로 수정하세요. 이전 작업은 Ctrl+Z로 돌아갈 수 있습니다.`);
+  openDoc(nd); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; setTool('pencil'); renderColors(); renderPalette();
+  toast(`${r.w}×${r.h} 새 캔버스(새 탭)로 열었습니다. 바로 수정하세요. 이전 작업은 원래 탭에 그대로 있습니다.`);
 }
 function convInsert(){
   const r=buildConv('layer'); if(!r) return; const ox=Math.floor((doc.w-r.w)/2), oy=Math.floor((doc.h-r.h)/2);
@@ -2245,7 +2264,8 @@ function setMode(m){
   renderComp(); renderTimeline(); requestDraw();
 }
 function makeComponentFromArt(){ docChange(()=>{ const m=Math.max(1,Math.floor(Math.min(doc.w,doc.h)/4)); doc.comp={kind:'custom',slice:{l:m,t:m,r:m,b:m},pad:fitPad({l:m,t:m,r:m,b:m},doc.w,doc.h),padAuto:true,lock:false,fill:'stretch',label:''}; doc.frames.forEach((f,i)=>{ if(!f.name) f.name=i===0?'기본':`상태 ${i+1}`; }); }); toast('지금 그림을 컴포넌트로 바꿨습니다. 캔버스의 분홍 가이드를 끌어 늘어날 부분을 정하세요.'); }
-function startTemplate(kind){ replaceDoc(compTemplateDoc(kind,compBase())); ui.layer=0; renderLayers(); toast(`「${COMPKINDS[kind].name}」 템플릿을 열었습니다. 모서리·테두리는 잠겨 있고 안쪽만 그릴 수 있습니다.`); }
+// a template replaces a component being tried out, but pixel art keeps its own tab
+function startTemplate(kind){ const nd=compTemplateDoc(kind,compBase()); if(doc.comp) replaceDoc(nd); else openDoc(nd); ui.layer=0; renderLayers(); toast(`「${COMPKINDS[kind].name}」 템플릿을 열었습니다. 모서리·테두리는 잠겨 있고 안쪽만 그릴 수 있습니다.`); }
 // redraws every state with new generation options (one undo step); hand edits are replaced
 function regenComp(patch){
   const C=doc.comp; if(!C||!C.opts||!COMPKINDS[C.kind]) return;
@@ -2276,7 +2296,7 @@ function libSave(asNew){
   scheduleSave(); renderComp(); toast(over?`「${doc.name}」을(를) 덮어 저장했습니다`:`「${doc.name}」을(를) 내 컴포넌트에 저장했습니다`);
 }
 function libOpen(id){ const e=libLoad().find(x=>x.id===id); if(!e) return;
-  try{ const nd=deserialize(JSON.parse(e.data)); if(!nd.comp) throw new Error(); nd.comp.libId=id; replaceDoc(nd); ui.layer=0; renderLayers(); toast(`「${nd.name}」을(를) 열었습니다`); }
+  try{ const nd=deserialize(JSON.parse(e.data)); if(!nd.comp) throw new Error(); nd.comp.libId=id; openDoc(nd); ui.layer=0; renderLayers(); toast(`「${nd.name}」을(를) 열었습니다`); }
   catch(err){ toast('이 컴포넌트를 읽지 못했습니다. 라이브러리 파일을 다시 가져와 보세요.'); } }
 function libDelete(id){ const list=libLoad(), e=list.find(x=>x.id===id); if(!e) return;
   modal({title:'컴포넌트 삭제',body:h('p',{class:'hint',text:`「${e.name}」을(를) 내 컴포넌트에서 지웁니다. 지금 열려 있는 그림은 그대로 남습니다. 되돌릴 수 없으니 필요하면 먼저 라이브러리를 파일로 내보내세요.`}),
@@ -2441,6 +2461,111 @@ async function exportComponent(s){
 
 // text for the Figma component description
 function compNote(){ const C=doc.comp, s=C&&C.slice, p=compPad(); return `도트랩 UI 컴포넌트 · ${doc.w}×${doc.h}px · `+(s?`9-slice 여백 왼쪽 ${s.l} · 위 ${s.t} · 오른쪽 ${s.r} · 아래 ${s.b} (원본 픽셀, ${C.fill==='tile'?'반복':'늘이기'})`:'고정 크기 (늘리지 않음)')+(p?` · 안쪽 영역 ${p.l}/${p.t}/${p.r}/${p.b}`:'')+` · 상태: ${doc.frames.map((_,i)=>stateName(i)).join(', ')}`; }
+/* ================= open canvases (tabs) =================
+   Several documents stay open side by side. The active one is the global `doc`; the others are parked in
+   TABS.list with their own undo/redo stacks, timelapse, view and colour choice. Opening or creating a
+   document (새로 만들기, 열기, 이미지 → 새 캔버스, 내 컴포넌트 열기, Figma 선택 편집) adds a tab; replaceDoc still
+   swaps the active tab's document (templates, tests). Autosave keeps every tab (workspaceData).
+   The Figma build redeclares tabExtraSave/tabExtraLoad to keep each tab's linked Figma object. */
+const TABS={list:[],cur:0,max:12};
+let tabSeq=1;
+function tabExtraSave(){ return {}; }
+function tabExtraLoad(x){}
+function tabMake(d){ return {id:tabSeq++,doc:d,hist:[],redo:[],tl:[],st:null,extra:{},saved:null}; }
+function tabCur(){ return TABS.list[TABS.cur]; }
+// run fn with another document as the global one (serialize, composite and friends read `doc` / `palRGB`)
+function withDoc(d,fn){ if(d===doc) return fn(); const keep=[doc,palRGB]; doc=d; palRGB=d.palette.map(hex2rgb); try{ return fn(); } finally{ doc=keep[0]; palRGB=keep[1]; } }
+
+// park the active document and everything that belongs to it
+function tabStash(){
+  const t=tabCur(); if(!t) return;
+  t.doc=doc; t.hist=hist.splice(0); t.redo=redoS.splice(0); t.tl=TL.snaps;
+  t.st={layer:ui.layer,frame:ui.frame,zoom:ui.zoom,panX:ui.panX,panY:ui.panY,userView:ui.userView,playTag:ui.playTag,primary:ui.primary,secondary:ui.secondary};
+  t.extra=tabExtraSave(); try{ t.saved=serialize(); }catch(e){ t.saved=null; }
+}
+function tabActivate(t){
+  doc=t.doc; hist.push(...t.hist); redoS.push(...t.redo); t.hist=[]; t.redo=[]; t.saved=null;
+  TL.snaps=t.tl||[]; updPal(); recalcIds(); setSel(null); ui.lastPt=null;
+  const s=t.st;
+  if(s){ Object.assign(ui,{layer:s.layer,frame:s.frame,playTag:s.playTag,primary:s.primary,secondary:s.secondary}); }
+  else { ui.layer=doc.layers.length-1; ui.frame=0; ui.playTag=-1; ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; }
+  ui.layer=clamp(ui.layer,0,doc.layers.length-1); ui.frame=clamp(ui.frame,0,doc.frames.length-1);
+  if(ui.primary>doc.palette.length) ui.primary=Math.min(1,doc.palette.length); if(ui.secondary>doc.palette.length) ui.secondary=0;
+  if(!TL.snaps.length) recordTL();
+  tabExtraLoad(t.extra||{});
+  if(doc.comp&&ui.mode!=='comp') setMode('comp');   // a component opens in component mode; other canvases keep the current mode
+  refreshAll();
+  if(s&&s.userView){ ui.userView=true; ui.zoom=s.zoom; ui.panX=s.panX; ui.panY=s.panY; updZoom(); requestDraw(); } else fitView();
+  scheduleSave();
+}
+function switchTab(i){
+  if(i===TABS.cur||i<0||i>=TABS.list.length||pend||drag) return;
+  stopPlay(); tabStash(); TABS.cur=i; tabActivate(tabCur());
+}
+// open a document in a new tab next to the active one
+function openDoc(nd){
+  if(!nd.tags) nd.tags=[];
+  if(TABS.list.length>=TABS.max){ replaceDoc(nd); toast(`캔버스는 ${TABS.max}개까지 열 수 있어 지금 탭을 바꿨습니다. Ctrl+Z로 되돌릴 수 있습니다.`); return; }
+  stopPlay(); tabStash();
+  const t=tabMake(nd); TABS.list.splice(TABS.cur+1,0,t); TABS.cur++;
+  tabActivate(t);
+}
+function closeTab(i){
+  const t=TABS.list[i]; if(!t) return;
+  const busy=i===TABS.cur?hist.length>0:t.hist.length>0;
+  const go=()=>{
+    stopPlay();
+    if(TABS.list.length===1){ hist.length=0; redoS.length=0; TABS.list[0]=tabMake(makeDoc(doc.w,doc.h,doc.palette,L('새 작품'))); TABS.cur=0; tabActivate(TABS.list[0]); return; }
+    if(i===TABS.cur){ hist.length=0; redoS.length=0; TABS.list.splice(i,1); TABS.cur=Math.min(i,TABS.list.length-1); tabActivate(tabCur()); }
+    else { TABS.list.splice(i,1); if(i<TABS.cur) TABS.cur--; renderTabs(); scheduleSave(); }
+  };
+  if(!busy) return go();
+  const nm=i===TABS.cur?doc.name:t.doc.name;
+  modal({title:'캔버스 닫기',body:h('p',{class:'hint',text:`「${nm}」을(를) 닫습니다. 실행 취소 기록도 함께 사라집니다. 보관하려면 먼저 저장하세요.`}),
+    actions:[{label:'취소'},{label:'닫기',primary:true,onClick:go}]});
+}
+
+/* tab strip above the stage: a small picture, the name and a close button per canvas */
+function tabThumb(t,cv){
+  const d=t===tabCur()?doc:t.doc, fi=t===tabCur()?ui.frame:(t.st?t.st.frame:0);
+  const img=withDoc(d,()=>composite(Math.min(fi,d.frames.length-1)));
+  cv.width=d.w; cv.height=d.h; cv.getContext('2d').putImageData(new ImageData(img,d.w,d.h),0,0);
+}
+function renderTabs(){
+  const bar=$('#docTabs'); if(!bar||!doc) return; bar.textContent='';
+  TABS.list.forEach((t,i)=>{
+    const d=i===TABS.cur?doc:t.doc, on=i===TABS.cur;
+    const cv=h('canvas',{class:'tthumb checker'}); tabThumb(t,cv);
+    const tab=h('div',{class:'dtab'+(on?' on':''),role:'tab','aria-selected':String(on),title:`${d.name} · ${d.w}×${d.h}`,onclick:()=>switchTab(i),
+      onauxclick:e=>{ if(e.button===1){ e.preventDefault(); closeTab(i); } }},
+      cv,h('span',{class:'tname','data-i18n':'off',text:d.name}),
+      h('button',{class:'tclose',title:'캔버스 닫기','aria-label':`「${d.name}」 닫기`,text:'×',onclick:e=>{ e.stopPropagation(); closeTab(i); }}));
+    bar.append(tab);
+  });
+  bar.append(h('button',{class:'tadd',title:'새 캔버스 (새 탭)','aria-label':'새 캔버스',text:'+',onclick:newDialog}));
+  const on=bar.querySelector('.dtab.on'); if(on&&on.scrollIntoView&&bar.scrollWidth>bar.clientWidth) on.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function updTabThumb(){ const cv=$('#docTabs .dtab.on canvas'); if(cv) tabThumb(tabCur(),cv); }
+
+/* autosave: every open canvas in one string */
+function workspaceData(){
+  const docs=TABS.list.map((t,i)=>i===TABS.cur?serialize():(t.saved||(t.saved=withDoc(t.doc,serialize))));
+  return JSON.stringify({format:'dotlab-workspace',version:1,active:TABS.cur,docs});
+}
+// accepts a workspace or a single project (older autosaves)
+function parseWorkspace(s){
+  const o=typeof s==='string'?JSON.parse(s):s; if(!o) return null;
+  if(o.format==='dotlab-workspace'){
+    const docs=[]; let active=0;
+    (o.docs||[]).forEach((x,i)=>{ try{ const d=deserialize(typeof x==='string'?JSON.parse(x):x); if(i===o.active) active=docs.length; docs.push(d); }catch(e){} });
+    return docs.length?{docs:docs.slice(0,TABS.max),active:Math.min(active,TABS.max-1)}:null;
+  }
+  return {docs:[deserialize(o)],active:0};
+}
+function tabsInit(ws){
+  TABS.list=(ws?ws.docs:[sampleDoc()]).map(tabMake); TABS.cur=ws?ws.active:0;
+  doc=tabCur().doc; TABS.list.forEach((t,i)=>{ if(i!==TABS.cur) t.saved=null; });
+}
 /* ================= AI (Claude via sample capability) ================= */
 let sample=null, aiCtl=null, aiRunning=false, aiOff=false;
 const cands=[]; let candSeq=1;
@@ -2579,7 +2704,7 @@ function init(prefs){
   for(const t of TOOLDEFS) tb.append(h('button',{class:'tool','data-tool':t.id,'aria-pressed':'false','aria-label':t.name,title:`${t.name} (${t.key})`,html:ICON[t.id],onclick:()=>setTool(t.id)}));
   $('#lAdd').innerHTML=ICON.plus; $('#lDup').innerHTML=ICON.copy; $('#lUp').innerHTML=ICON.up; $('#lDown').innerHTML=ICON.down; $('#lMerge').innerHTML=ICON.merge; $('#lDel').innerHTML=ICON.trash;
 
-  const saved=loadAutosave(); doc=saved||sampleDoc(); updPal(); recalcIds(); ui.layer=doc.layers.length-1;
+  const saved=loadAutosave(); tabsInit(saved); updPal(); recalcIds(); ui.layer=doc.layers.length-1;
   if(!saved) setTimeout(()=>toast('예시 작품을 열었습니다. 새로 만들기로 빈 캔버스를 시작할 수 있습니다.'),600);
   else setTimeout(()=>toast('자동 저장된 작업을 불러왔습니다'),600);
 
