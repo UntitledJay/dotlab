@@ -1,7 +1,7 @@
 [hidden]{display:none!important}
 body{margin:0}
 img{max-width:100%}
-.keybox{border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+.keybox{background:var(--panel-2);border-radius:12px;padding:8px 12px}
 .keybox summary{cursor:pointer;font-weight:500}
 .keybox[open]{display:flex;flex-direction:column;gap:6px;padding-bottom:10px}
 .keybox input{font-family:var(--f-mono)}

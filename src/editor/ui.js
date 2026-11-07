@@ -153,9 +153,20 @@ function rampDialog(){
     actions:[{label:'취소'},{label:'추가',primary:true,onClick:()=>makeRamp(clamp(n.value|0,1,12))}]});
 }
 function helpDialog(){
-  const rows=[['B E G I','연필 · 지우개 · 채우기 · 스포이드'],['L U O','직선 · 사각형 · 원'],['M W V H','사각 선택 · 마술봉 · 이동 · 화면 이동'],['X','주/보조 색 바꾸기'],['[  ]','브러시 크기'],['Space + 드래그','화면 이동 (가운데 버튼 드래그도 가능)'],['휠 · + · −','확대 / 축소'],['0','화면에 맞춤'],['Ctrl+Z / Ctrl+Shift+Z','실행 취소 / 다시 실행'],['Ctrl+A · Esc','전체 선택 · 선택 해제'],['Ctrl+C / Ctrl+V','복사 / 새 레이어로 붙여넣기'],['Delete','선택 영역 지우기'],[',  .','이전 / 다음 프레임'],['Enter','애니메이션 재생 / 정지'],['Ctrl+S','프로젝트 저장']];
-  modal({title:'단축키',body:h('div',{class:'keys'},rows.flatMap(([k,d])=>[h('kbd',{text:k}),h('span',{text:d})]))});
+  const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+  const rows=[['연필 · 지우개 · 채우기 · 스포이드','B E G I'],['직선 · 사각형 · 원','L U O'],['사각 선택 · 마술봉 · 이동 · 화면 이동','M W V H'],['주/보조 색 바꾸기','X'],['브러시 크기','[ ]'],['화면 이동 (가운데 버튼 드래그도 가능)','Space + 드래그'],['확대 / 축소','휠 · \\+ −'],['화면에 맞춤','0'],['실행 취소 / 다시 실행','Ctrl+Z / Ctrl+Shift+Z'],['전체 선택 · 선택 해제','Ctrl+A · Esc'],['복사 / 새 레이어로 붙여넣기','Ctrl+C / Ctrl+V'],['선택 영역 지우기','Delete'],['이전 / 다음 프레임',', .'],['애니메이션 재생 / 정지','Enter'],['프로젝트 저장','Ctrl+S']];
+  // every key gets its own keycap; '/', '·' and words such as 「드래그」 stay plain text
+  const caps=spec=>h('span',{class:'kcaps'},spec.split(' ').flatMap(tok=>{
+    if(tok==='/'||tok==='·') return [h('span',{text:tok})];
+    if(/[가-힣]/.test(tok)) return [h('span',{text:tok})];
+    if(tok==='+') return [h('span',{text:'+'})];
+    if(tok==='\\+') return [h('kbd',{text:'+'})];   // a literal + key
+    const keys=tok.length>1&&tok.includes('+')?tok.split('+'):[tok];
+    return keys.map(k=>h('kbd',{text:mac?({Ctrl:'⌘',Shift:'⇧'}[k]||k):k}));
+  }));
+  modal({title:'단축키',body:h('div',{class:'keys'},rows.map(([d,k])=>h('div',{class:'krow'},h('span',{class:'kd',text:d}),caps(k))))});
 }
+
 
 /* ================= files: open / save / export ================= */
 let downloads=null;
