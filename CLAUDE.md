@@ -25,8 +25,11 @@ npm test                    # 빌드 후 테스트 4개 실행
 ```
 src/shell.html          화면 마크업 + CSS 전체 (디자인 토큰, 라이트/다크)
 src/editor/core.js      유틸, 상태, 문서 모델, 합성·렌더, 히스토리, 그리기 도구, 선택, 레이어·프레임·팔레트 연산, 저장 형식
-src/editor/ui.js        패널 렌더링, 대화상자, 파일 열기/내보내기, GIF 인코더
+src/editor/ui.js        패널 렌더링, 대화상자(태그 편집 포함), 파일 열기/내보내기, GIF 인코더
+src/editor/aseprite.js  .aseprite 읽기(인덱스·RGBA·그레이스케일)·쓰기(인덱스)
+src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF
 src/editor/conv.js      이미지 → 도트 (격자 자동 감지, 색 정리, 배경 제거)
+src/editor/recolor.js   색감 옮기기 (참조 이미지 색을 밝기 순서대로 팔레트에 입힘)
 src/editor/ai.js        AI 생성 (후보, 부분 다시 그리기, 팔레트 생성) + 웹 버전 기능 연결(initCapabilities)
 src/editor/init.js      이벤트 연결, 단축키, init()
 src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저장, 파일 다운로드, Anthropic API 호출, 캔버스 넣기·가져오기
@@ -40,7 +43,7 @@ docs/plan.html          기획서
 
 ## 구조에서 꼭 알아야 할 점
 
-**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 웹이 `core → ui → conv → ai → init`, Figma가 `core → ui → conv → ai → platform/figma → init`입니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
+**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → ai`) 다음에 Figma는 `platform/figma`, 마지막에 `init`입니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
 
 **플랫폼 차이는 함수 재선언으로 바꿉니다.** 같은 스크립트 안에서는 나중에 선언된 `function`이 이깁니다. `platform/figma.js`는 다음을 다시 선언합니다.
 
@@ -62,11 +65,15 @@ doc = {
   palette: ['#rrggbb', ...],        // 최대 62색 (MAXPAL, AI 문자표 0-9a-zA-Z 길이)
   layers: [{ id, name, visible, opacity, locked, alphaLock, outline }],  // 아래 → 위 순서. outline: 0 또는 팔레트 값
   frames: [{ dur /*ms*/, cels: { [layerId]: Uint8Array(w*h) } }],
+  tags: [{ name, from, to /*0부터, 끝 포함*/, dir: 'forward'|'reverse'|'pingpong', color: '#rrggbb' }],
 }
 ```
 
+- **링크 셀**: 서로 다른 프레임의 `cels[id]`가 **같은 `Uint8Array` 객체**를 가리키면 링크된 셀입니다. 한쪽을 고치면 함께 바뀌고, `structuredClone`(히스토리)도 이 공유 관계를 보존합니다. 모든 cel을 도는 변경 루프는 같은 배열을 두 번 고치지 않도록 `Set`으로 중복을 걸러야 합니다(`remapAll` 참고). 프레임마다 다르게 써야 하는 작업은 먼저 링크를 풉니다(`mergeDown`이 아래 레이어를 그렇게 처리합니다). `isLinked`, `linkedWithPrev`, `unlinkCel`, `addFrame('empty'|'dup'|'link')`를 씁니다.
+- **태그**: 프레임을 넣거나 지우면 `shiftTags`가 범위를 맞춥니다. 재생과 GIF는 `playSequence(range)`로 프레임 순서를 만듭니다. 핑퐁은 끝 프레임을 반복하지 않습니다(Aseprite와 같은 방식).
+
 - 픽셀 값 `0`은 투명, `v`는 `palette[v-1]`입니다(인덱스 컬러). 팔레트를 바꾸면 그림 전체가 바뀝니다. 색을 지우거나 순서를 바꿀 때는 `remapAll(map)`으로 모든 cel을 다시 매핑합니다.
-- 저장 형식(`serialize`/`deserialize`): `{format:'dotlab',version:1,...}`이고, cel은 RLE 후 base64로 저장합니다. 형식을 바꾸면 `version`을 올리고 이전 버전 읽기를 유지합니다. Figma에 넣은 개체의 `pluginData('dotlab')`에도 같은 문자열이 들어갑니다.
+- 저장 형식(`serialize`/`deserialize`): `{format:'dotlab',version:2,...,tags}`이고, cel은 RLE 후 base64 문자열이거나, 링크면 `{link: 앞 프레임 번호}`입니다. version 1 파일(태그·링크 없음)도 그대로 읽습니다. 형식을 바꾸면 `version`을 올리고 이전 버전 읽기를 유지합니다. Figma에 넣은 개체의 `pluginData('dotlab')`에도 같은 문자열이 들어갑니다.
 
 ## 편집 규칙 (실행 취소와 다시 그리기)
 
@@ -107,6 +114,20 @@ doc = {
 - 결과물은 파일 하나여야 하므로 UI에 외부 라이브러리를 넣지 않습니다. 웹 버전만 Google Fonts를 씁니다(Figma 빌드에서는 제거됨).
 - 폰 폭(400px)에서 가로 스크롤이 생기지 않아야 합니다(테스트로 확인).
 
+## .aseprite 호환 (`src/editor/aseprite.js`)
+
+- **사양**: https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md 를 따릅니다. zlib은 브라우저의 `CompressionStream` / `DecompressionStream('deflate')`를 씁니다.
+- **읽기** (`asepriteToDoc`):
+  - 이미지 레이어만 가져옵니다. 그룹은 풀고, 타일맵은 건너뜁니다.
+  - 링크 셀은 공유 배열로, 태그는 태그로 가져옵니다. 역방향 핑퐁은 핑퐁으로 바꿉니다.
+  - 인덱스 모드의 투명 색 번호는 Background 레이어에서는 불투명으로 다룹니다.
+  - 팔레트는 파일 팔레트가 62색 이하면 그 순서를 쓰고, 넘으면 실제 쓰인 색으로 다시 만듭니다.
+  - 반투명은 불투명도 절반을 기준으로 정리합니다. 바뀐 점은 `warnings`로 돌려줍니다.
+- **쓰기** (`docToAseprite`):
+  - 인덱스 8bpp로 씁니다. 0번 색이 투명이고, 도트랩 값 v가 그대로 팔레트 번호 v가 됩니다.
+  - 빈 셀은 생략하고, 링크 셀은 셀 형식 1로, 나머지는 잘라낸 뒤 zlib으로 압축합니다.
+  - 외곽선 효과는 Aseprite에 없어서 픽셀로 굳혀 씁니다.
+
 ## 테스트
 
 | 파일 | 확인하는 것 |
@@ -114,12 +135,13 @@ doc = {
 | `tests/editor.test.mjs` | 픽셀 퍼펙트, 실행 취소, 도형·채우기·이동, 저장 왕복, GIF 디코딩과 LZW 무손실, 폰 폭 레이아웃 |
 | `tests/grid-detect.test.mjs` | 확대·잘림·JPG·2.5배·투명·1배 이미지에서 원본 격자와 픽셀을 100% 복원, 사진은 사진 모드 |
 | `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소 |
+| `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스, 색감 옮기기 |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.
 
 ## 남은 작업 (기획서 로드맵 기준)
 
-- **V1**: `.aseprite` 가져오기/내보내기, 프레임 태그·링크 셀, 타임랩스, 컬러 스타일 트랜스퍼
+- **V1**: 완료 (`.aseprite` 가져오기/내보내기, 프레임 태그·링크 셀, 타임랩스, 색감 옮기기). 타임랩스 기록은 아직 세션 메모리에만 있어서 새로고침하면 사라집니다.
 - **V2**: 방향 회전·포즈 지정·동작 애니메이션 생성, 스타일 고정, 타일맵·타일셋 생성과 Tiled 내보내기, 픽셀 텍스트(한글 도트 폰트), 비즈·십자수 도안, 펜·터치 최적화
 - **배포**: Figma Community용 플러그인 ID 발급, API 키 중계 서버, 회원·결제·클라우드 저장(웹 서비스로 갈 경우)

@@ -49,8 +49,17 @@ function renderLayers(){
 }
 function renderTimeline(){
   const list=$('#frameList'); list.textContent=''; frameThumbs=[];
+  const lid=activeLayer().id;
   doc.frames.forEach((f,i)=>{ const cv=h('canvas',{class:'checker'}); frameThumbs.push(cv);
-    list.append(h('button',{class:'fcell'+(i===ui.frame?' on':''),title:`프레임 ${i+1} · ${f.dur}ms`,onclick:()=>gotoFrame(i)},cv,h('span',{class:'fn',text:String(i+1)}))); });
+    const linked=linkedWithPrev(i,lid), tag=doc.tags.find(t=>i>=t.from&&i<=t.to);
+    list.append(h('button',{class:'fcell'+(i===ui.frame?' on':'')+(linked?' linked':''),style:tag?`--tc:${tag.color}`:null,'data-tag':tag?'1':null,
+      title:`프레임 ${i+1} · ${f.dur}ms`+(linked?' · 「'+activeLayer().name+'」 셀이 앞 프레임과 링크됨':'')+(tag?` · 태그 「${tag.name}」`:''),onclick:()=>gotoFrame(i)},cv,h('span',{class:'fn',text:String(i+1)}))); });
+  const row=$('#tagRow'); row.textContent='';
+  doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),`${t.name} · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:t.dir==='reverse'?'역방향':'핑퐁'}):null)));
+  row.hidden=!doc.tags.length;
+  if(ui.playTag>=doc.tags.length) ui.playTag=-1;
+  const ps=$('#playScope'); ps.textContent=''; ps.append(h('option',{value:-1,text:'전체 프레임'}),...doc.tags.map((t,k)=>h('option',{value:k,text:'태그: '+t.name}))); ps.value=String(ui.playTag);
+  $('#frUnlink').disabled=!isLinked(ui.frame,lid);
   $('#frDur').value=doc.frames[ui.frame].dur;
   const total=doc.frames.reduce((s,f)=>s+f.dur,0);
   $('#frInfo').textContent=`${ui.frame+1} / ${doc.frames.length} 프레임 · 전체 ${(total/1000).toFixed(2)}초`;
@@ -181,7 +190,7 @@ async function exportSheet(s){
   const n=doc.frames.length, fw=doc.w*s, fh=doc.h*s; const cols=Math.min(n,Math.max(1,Math.floor(4096/fw))); const rows=Math.ceil(n/cols);
   const cv=document.createElement('canvas'); cv.width=fw*cols; cv.height=fh*rows; const c=cv.getContext('2d'); c.imageSmoothingEnabled=false;
   const frames=doc.frames.map((f,i)=>{ const x=(i%cols)*fw, y=Math.floor(i/cols)*fh; c.drawImage(frameCanvas(i),x,y,fw,fh); return {filename:`${base()} ${i}`,frame:{x,y,w:fw,h:fh},duration:f.dur}; });
-  const json=JSON.stringify({frames,meta:{app:'DotLab',version:'1',image:`${base()}-sheet@${s}x.png`,format:'RGBA8888',size:{w:cv.width,h:cv.height},scale:String(s),frameTags:[],layers:doc.layers.map(L=>({name:L.name,opacity:Math.round(L.opacity*255)}))}},null,1);
+  const json=JSON.stringify({frames,meta:{app:'DotLab',version:'1',image:`${base()}-sheet@${s}x.png`,format:'RGBA8888',size:{w:cv.width,h:cv.height},scale:String(s),frameTags:doc.tags.map(t=>({name:t.name,from:t.from,to:t.to,direction:t.dir,color:t.color+'ff'})),layers:doc.layers.map(L=>({name:L.name,opacity:Math.round(L.opacity*255)}))}},null,1);
   offerFiles([{filename:`${base()}-sheet@${s}x.png`,data:await toBlob(cv)},{filename:`${base()}-sheet@${s}x.json`,data:json}]);
 }
 function lzw(idx,minCode){
@@ -211,32 +220,37 @@ function encodeGIF(W,H,colors,frames){
   }
   out.push(0x3B); return new Uint8Array(out);
 }
-function buildGIF(s){
+function buildGIF(s,seq){
   const {w,h:H}=doc, W=w*s, HH=H*s; const colors=[[0,0,0],...palRGB]; const km=new Map(); palRGB.forEach((c,i)=>{ const key=(c[0]<<16)|(c[1]<<8)|c[2]; if(!km.has(key)) km.set(key,i+1); });
-  const frames=doc.frames.map((f,fi)=>{ const rgba=composite(fi); const idx=new Uint8Array(W*HH);
+  const order=seq||doc.frames.map((_,i)=>i); const cache=new Map();
+  const frames=order.map(fi=>{ const f=doc.frames[fi]; if(cache.has(fi)) return {idx:cache.get(fi),delay:Math.max(2,Math.round(f.dur/10))}; const rgba=composite(fi); const idx=new Uint8Array(W*HH); cache.set(fi,idx);
     for(let y=0;y<H;y++) for(let x=0;x<w;x++){ const j=(y*w+x)*4; let v=0;
       if(rgba[j+3]>=128){ const key=(rgba[j]<<16)|(rgba[j+1]<<8)|rgba[j+2]; v=km.get(key); if(v===undefined){ v=nearestIdx([rgba[j],rgba[j+1],rgba[j+2]],palRGB)+1; km.set(key,v); } }
       if(v) for(let yy=0;yy<s;yy++){ const row=(y*s+yy)*W+x*s; idx.fill(v,row,row+s); } }
     return {idx,delay:Math.max(2,Math.round(f.dur/10))}; });
   return encodeGIF(W,HH,colors,frames);
 }
-function exportGIF(s){ offerFiles([{filename:`${base()}@${s}x.gif`,data:new Blob([buildGIF(s)],{type:'image/gif'})}]); }
+function exportGIF(s,tagIdx){ const t=tagIdx>=0?doc.tags[tagIdx]:null; const seq=t?playSequence({from:t.from,to:Math.min(t.to,doc.frames.length-1),dir:t.dir}):null; offerFiles([{filename:`${base()}${t?'-'+t.name:''}@${s}x.gif`,data:new Blob([buildGIF(s,seq)],{type:'image/gif'})}]); }
 function exportPalette(){ offerFiles([{filename:base()+'-palette.txt',data:doc.palette.map(c=>c.slice(1)).join('\n')+'\n'}]); }
 function exportDialog(){
   const maxS=Math.max(1,Math.floor(2048/Math.max(doc.w,doc.h)));
   const sc=h('select',{'aria-label':'배율'},[1,2,4,8,16,32].filter(s=>s<=Math.max(1,maxS)||s===1).map(s=>h('option',{value:s,text:`${s}× (${doc.w*s}×${doc.h*s})`,selected:s===Math.min(8,maxS)})));
   const anim=doc.frames.length>1;
+  const gr=h('select',{'aria-label':'GIF 범위'},h('option',{value:-1,text:'전체 프레임'}),doc.tags.map((t,k)=>h('option',{value:k,text:`태그 「${t.name}」 (${t.from+1}–${t.to+1})`,selected:k===ui.playTag})));
   const opt=(v,t,d,c)=>h('label',{class:'opt'},h('input',{type:'radio',name:'ex',value:v,checked:!!c}),h('div',null,h('b',{text:t}),h('span',{text:d})));
   modal({title:'내보내기',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},
       h('div',{class:'optlist'},
         opt('png','PNG 이미지',`현재 프레임(${ui.frame+1}번)을 보간 없이 확대해 저장합니다. 투명 배경을 유지합니다.`,!anim),
         opt('gif','GIF 애니메이션',`프레임 ${doc.frames.length}개와 프레임별 지속시간을 담아 반복 재생합니다.`,anim),
-        opt('sheet','스프라이트 시트 + JSON','모든 프레임을 한 장에 배치하고, 게임 엔진에서 읽는 프레임 좌표 JSON을 함께 저장합니다.'),
+        opt('sheet','스프라이트 시트 + JSON','모든 프레임을 한 장에 배치하고, 게임 엔진에서 읽는 프레임 좌표와 태그 JSON(Aseprite 형식)을 함께 저장합니다.'),
+        opt('aseprite','Aseprite 파일 (.aseprite)','레이어·프레임·태그·링크 셀·팔레트를 그대로 담아 Aseprite에서 이어서 작업할 수 있습니다. 배율은 적용되지 않습니다.'),
+        opt('timelapse','타임랩스 GIF',TL.snaps.length>2?`이 작업을 연 뒤부터 기록한 과정 ${TL.snaps.length}단계를 짧은 GIF로 만듭니다.`:'아직 기록된 과정이 거의 없습니다. 그림을 그리면 단계마다 자동으로 기록됩니다.'),
         opt('project','프로젝트 파일 (.dotlab.json)','레이어·프레임·팔레트를 그대로 보존합니다. 열기로 다시 불러올 수 있습니다.'),
         opt('palette','팔레트 (.txt)','한 줄에 색 하나씩 적은 hex 목록입니다.')),
-      h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc)),
+      h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc),
+      doc.tags.length?h('label',{class:'row2',style:'color:var(--muted)'},'GIF 범위 ',gr):null),
     actions:[{label:'취소'},{label:'내보내기',primary:true,onClick:()=>{ const v=$('input[name=ex]:checked').value, s=+sc.value;
-      if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s); else if(v==='sheet') exportSheet(s); else if(v==='project') saveProject(); else exportPalette(); }}]});
+      if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s,+gr.value); else if(v==='sheet') exportSheet(s); else if(v==='aseprite') exportAseprite(); else if(v==='timelapse') exportTimelapse(s); else if(v==='project') saveProject(); else exportPalette(); }}]});
 }
 function readText(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(r.error); r.readAsText(f); }); }
 function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(f); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('이미지를 읽을 수 없습니다')); im.src=url; }); }
@@ -246,9 +260,26 @@ async function handleFile(f){
     if(n.endsWith('.json')){ const nd=deserialize(JSON.parse(await readText(f))); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
     else if(/\.(hex|gpl|txt)$/.test(n)){ const cols=parsePaletteText(await readText(f)); if(!cols.length) throw new Error('파일에서 색을 찾지 못했습니다'); presetDialog(cols,`팔레트 가져오기 (${cols.length}색)`); }
     else if(f.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)){ showTab('pConv'); await setConvImage(f); }
-    else if(n.endsWith('.aseprite')||n.endsWith('.ase')) toast('Aseprite 파일은 아직 열 수 없습니다. Aseprite에서 PNG나 스프라이트 시트로 내보낸 뒤 열어 주세요.');
+    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); replaceDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }
     else toast('열 수 없는 파일 형식입니다');
   }catch(e){ toast(e.message||'파일을 열지 못했습니다'); }
 }
 
-async function setRefImage(src){ ref.img=src instanceof HTMLImageElement?src:await loadImageFile(src); ref.visible=true; $('#refVis').checked=true; $('#refDel').disabled=false; requestDraw(); }
+async function setRefImage(src){ ref.img=src instanceof HTMLImageElement?src:await loadImageFile(src); ref.visible=true; $('#refVis').checked=true; $('#refDel').disabled=false; requestDraw(); renderXfer(); }
+function tagDialog(idx){
+  const t=idx!=null?doc.tags[idx]:{name:`태그 ${doc.tags.length+1}`,from:ui.frame,to:ui.frame,dir:'forward',color:TAGCOLORS[doc.tags.length%TAGCOLORS.length]};
+  const N=doc.frames.length;
+  const nm=h('input',{value:t.name,'aria-label':'태그 이름',maxlength:40});
+  const fr=h('input',{type:'number',min:1,max:N,value:t.from+1,style:'width:70px','aria-label':'시작 프레임'}), to=h('input',{type:'number',min:1,max:N,value:t.to+1,style:'width:70px','aria-label':'끝 프레임'});
+  const dir=h('select',{'aria-label':'재생 방향'},[['forward','정방향'],['reverse','역방향'],['pingpong','핑퐁 (갔다가 돌아오기)']].map(([v,l])=>h('option',{value:v,text:l,selected:v===t.dir})));
+  let color=t.color; const sw=h('div',{class:'swrow',role:'radiogroup','aria-label':'태그 색'});
+  const paint=()=>{ sw.textContent=''; for(const c of TAGCOLORS) sw.append(h('button',{class:'tagsw'+(c===color?' on':''),style:'background:'+c,'aria-label':c,'aria-pressed':String(c===color),onclick:()=>{ color=c; paint(); }})); }; paint();
+  const actions=[{label:'취소'},{label:'저장',primary:true,onClick:()=>{ let a=clamp(fr.value|0,1,N)-1, b=clamp(to.value|0,1,N)-1; if(b<a) [a,b]=[b,a]; saveTag({name:nm.value.trim().slice(0,40)||'태그',from:a,to:b,dir:dir.value,color},idx); }}];
+  if(idx!=null) actions.unshift({label:'태그 삭제',danger:true,onClick:()=>deleteTag(idx)});
+  modal({title:idx!=null?'태그 편집':'새 태그',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},
+    h('label',{class:'row2',style:'color:var(--muted)'},'이름 ',nm),
+    h('div',{class:'row2'},h('label',null,'프레임 ',fr),'부터',h('label',null,to),'까지'),
+    h('label',{class:'row2',style:'color:var(--muted)'},'재생 방향 ',dir),
+    h('div',{class:'row2',style:'color:var(--muted)'},'색 ',sw),
+    h('p',{class:'hint',text:'태그는 "걷기", "공격"처럼 프레임 구간에 이름을 붙입니다. 재생과 GIF 내보내기에서 태그 구간만 고를 수 있고, 스프라이트 시트 JSON과 Aseprite 파일에도 그대로 들어갑니다.'})),actions});
+}

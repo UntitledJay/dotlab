@@ -23,7 +23,8 @@ function init(){
   $('#swSwap').onclick=()=>{ [ui.primary,ui.secondary]=[ui.secondary,ui.primary]; renderColors(); renderPalette(); };
 
   $('#lAdd').onclick=addLayer; $('#lDup').onclick=dupLayer; $('#lDel').onclick=delLayer; $('#lUp').onclick=()=>moveLayer(1); $('#lDown').onclick=()=>moveLayer(-1); $('#lMerge').onclick=mergeDown;
-  $('#bPlay').onclick=()=>ui.playing?stopPlay():play(); $('#frAdd').onclick=()=>addFrame(false); $('#frDup').onclick=()=>addFrame(true); $('#frDel').onclick=delFrame; $('#frL').onclick=()=>moveFrame(-1); $('#frR').onclick=()=>moveFrame(1);
+  $('#bPlay').onclick=()=>ui.playing?stopPlay():play(); $('#frAdd').onclick=()=>addFrame('empty'); $('#frDup').onclick=()=>addFrame('dup'); $('#frLink').onclick=()=>addFrame('link'); $('#frUnlink').onclick=unlinkCel; $('#frTag').onclick=()=>tagDialog();
+  $('#playScope').addEventListener('change',e=>{ const was=ui.playing; stopPlay(); ui.playTag=+e.target.value; if(was) play(); }); $('#frDel').onclick=delFrame; $('#frL').onclick=()=>moveFrame(-1); $('#frR').onclick=()=>moveFrame(1);
   $('#frDur').addEventListener('change',e=>{ doc.frames[ui.frame].dur=clamp(e.target.value|0,20,5000); renderTimeline(); scheduleSave(); });
 
   $('#pAdd').onclick=()=>editColor(0,true); $('#pEdit').onclick=()=>editColor(ui.primary); $('#pDel').onclick=()=>deleteColor(ui.primary);
@@ -53,7 +54,8 @@ function init(){
   $('#refOp').addEventListener('input',e=>{ ref.opacity=e.target.value/100; requestDraw(); });
   $('#refVis').addEventListener('change',e=>{ ref.visible=e.target.checked; requestDraw(); });
   $('#refAbove').addEventListener('change',e=>{ ref.above=e.target.checked; requestDraw(); });
-  $('#refDel').onclick=()=>{ ref.img=null; $('#refDel').disabled=true; requestDraw(); };
+  $('#refDel').onclick=()=>{ ref.img=null; $('#refDel').disabled=true; requestDraw(); renderXfer(); };
+  $('#xferAmt').addEventListener('input',renderXfer); $('#xferGo').onclick=applyXfer;
 
   const dh=$('#dropHint');
   stage.addEventListener('dragover',e=>{ e.preventDefault(); dh.hidden=false; });
@@ -91,7 +93,7 @@ function init(){
   window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; if(!drag) view.style.cursor=ui.tool==='hand'?'grab':'crosshair'; } });
   window.addEventListener('blur',()=>{ spaceDown=false; });
 
-  renderPlayBtn(); setTool('pencil'); refreshAll();
+  renderPlayBtn(); setTool('pencil'); refreshAll(); resetTL(); renderXfer();
   new ResizeObserver(resizeView).observe(stage); resizeView();
   initCapabilities();
 }
