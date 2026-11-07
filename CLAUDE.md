@@ -27,9 +27,9 @@ src/shell.html          화면 마크업 + CSS 전체 (디자인 토큰, 라이�
 src/editor/core.js      유틸, 상태, 문서 모델, 합성·렌더, 히스토리, 그리기 도구, 선택, 레이어·프레임·팔레트 연산, 저장 형식
 src/editor/ui.js        패널 렌더링, 대화상자(태그 편집 포함), 파일 열기/내보내기, GIF 인코더
 src/editor/aseprite.js  .aseprite 읽기(인덱스·RGBA·그레이스케일)·쓰기(인덱스)
-src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF
+src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF. AI 결과를 넣는 곳은 그 직전에 `TL.mark='ai'`를 두어 그 단계에 AI 표시가 붙게 합니다
 src/editor/conv.js      이미지 → 도트 (격자 자동 감지, 색 정리, 배경 제거)
-src/editor/recolor.js   색감 옮기기 (참조 이미지 색을 밝기 순서대로 팔레트에 입힘)
+src/editor/recolor.js   색감 옮기기 (밝기 순서대로 바꾸기 / Lab 색공간에서 분위기만 맞추기)
 src/editor/ai.js        AI 생성 (후보, 부분 다시 그리기, 팔레트 생성) + 웹 버전 기능 연결(initCapabilities)
 src/editor/init.js      이벤트 연결, 단축키, init()
 src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저장, 파일 다운로드, Anthropic API 호출, 캔버스 넣기·가져오기
@@ -65,7 +65,7 @@ doc = {
   palette: ['#rrggbb', ...],        // 최대 62색 (MAXPAL, AI 문자표 0-9a-zA-Z 길이)
   layers: [{ id, name, visible, opacity, locked, alphaLock, outline }],  // 아래 → 위 순서. outline: 0 또는 팔레트 값
   frames: [{ dur /*ms*/, cels: { [layerId]: Uint8Array(w*h) } }],
-  tags: [{ name, from, to /*0부터, 끝 포함*/, dir: 'forward'|'reverse'|'pingpong', color: '#rrggbb' }],
+  tags: [{ name, from, to /*0부터, 끝 포함*/, dir: 'forward'|'reverse'|'pingpong'|'pingpong_reverse' (TAGDIRS, Aseprite 파일의 번호 순서), color: '#rrggbb' }],
 }
 ```
 
@@ -118,14 +118,15 @@ doc = {
 
 - **사양**: https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md 를 따릅니다. zlib은 브라우저의 `CompressionStream` / `DecompressionStream('deflate')`를 씁니다.
 - **읽기** (`asepriteToDoc`):
-  - 이미지 레이어만 가져옵니다. 그룹은 풀고, 타일맵은 건너뜁니다.
-  - 링크 셀은 공유 배열로, 태그는 태그로 가져옵니다. 역방향 핑퐁은 핑퐁으로 바꿉니다.
+  - 이미지 레이어만 가져옵니다. 그룹은 풀고(숨긴 그룹 안의 레이어는 숨김으로), 타일맵은 건너뜁니다.
+  - 링크 셀은 공유 배열로, 태그는 태그로 가져옵니다. 태그 색은 태그 chunk 뒤의 사용자 데이터(0x2020, Aseprite 1.3+)를 먼저 쓰고, 없으면 태그 chunk의 RGB를 씁니다.
   - 인덱스 모드의 투명 색 번호는 Background 레이어에서는 불투명으로 다룹니다.
   - 팔레트는 파일 팔레트가 62색 이하면 그 순서를 쓰고, 넘으면 실제 쓰인 색으로 다시 만듭니다.
   - 반투명은 불투명도 절반을 기준으로 정리합니다. 바뀐 점은 `warnings`로 돌려줍니다.
 - **쓰기** (`docToAseprite`):
   - 인덱스 8bpp로 씁니다. 0번 색이 투명이고, 도트랩 값 v가 그대로 팔레트 번호 v가 됩니다.
-  - 빈 셀은 생략하고, 링크 셀은 셀 형식 1로, 나머지는 잘라낸 뒤 zlib으로 압축합니다.
+  - 빈 셀은 생략하고(다른 프레임이 링크한 빈 셀은 1×1 투명 셀로 남겨 링크를 유지), 링크 셀은 셀 형식 1로, 나머지는 잘라낸 뒤 zlib으로 압축합니다.
+  - 태그 색은 태그 chunk의 RGB와 그 뒤 사용자 데이터 chunk 둘 다에 씁니다.
   - 외곽선 효과는 Aseprite에 없어서 픽셀로 굳혀 씁니다.
 
 ## 테스트
@@ -135,7 +136,7 @@ doc = {
 | `tests/editor.test.mjs` | 픽셀 퍼펙트, 실행 취소, 도형·채우기·이동, 저장 왕복, GIF 디코딩과 LZW 무손실, 폰 폭 레이아웃 |
 | `tests/grid-detect.test.mjs` | 확대·잘림·JPG·2.5배·투명·1배 이미지에서 원본 격자와 픽셀을 100% 복원, 사진은 사진 모드 |
 | `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소 |
-| `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스, 색감 옮기기 |
+| `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스(AI 단계 표시), 색감 옮기기(두 방식, 미리보기), 숨긴 그룹·사용자 데이터 태그 색·역방향 핑퐁 가져오기, 비어 있는 링크 셀 보존 |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.

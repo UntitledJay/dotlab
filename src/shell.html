@@ -95,6 +95,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tagsw.on{border-color:var(--fg)}
 .xfer{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;font-size:11.5px;color:var(--muted)}
 .xfer .swrow i{width:14px;height:14px}
+.xarts{display:flex;gap:8px}
+.xarts canvas{width:72px;height:72px;image-rendering:pixelated;object-fit:contain;border:1px solid var(--line);border-radius:4px}
 canvas.thumb,.fcell canvas,.cand canvas,.convgrid canvas{image-rendering:pixelated;object-fit:contain}
 
 .side{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
@@ -353,6 +355,7 @@ textarea{resize:vertical;width:100%}
           <hr>
           <h3>색감 옮기기</h3>
           <p class="hint" id="xferHint">참조 이미지의 색감을 지금 팔레트에 입힙니다. 밝기 순서대로 짝지어 바꾸므로 그림의 명암 구조는 그대로 남습니다.</p>
+          <div class="row2"><label>방식 <select id="xferMode" aria-label="색감 옮기기 방식"><option value="rank">밝기 순서대로 바꾸기</option><option value="mood">분위기만 맞추기</option></select></label></div>
           <div class="row2"><label>강도 <input type="range" id="xferAmt" min="0" max="100" value="100"></label></div>
           <div class="xfer" id="xferPrev"></div>
           <div class="actions"><button class="btn primary" id="xferGo" disabled>팔레트에 적용</button></div>
