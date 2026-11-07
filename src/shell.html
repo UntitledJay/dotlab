@@ -70,7 +70,19 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--acce
 .swap{font-size:11px;color:var(--muted);background:none;border:0;cursor:pointer;padding:2px 6px;border-radius:6px}
 .swap:hover{background:var(--panel-2);color:var(--fg)}
 
-.stagecol{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:8px;min-width:0;min-height:0}
+.stagecol{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:8px;min-width:0;min-height:0}
+.doctabs{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;margin-bottom:-2px}
+.doctabs::-webkit-scrollbar{display:none}
+.dtab{display:flex;align-items:center;gap:7px;flex:none;max-width:200px;height:32px;padding:0 4px 0 6px;border-radius:10px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:500;transition:background .12s,color .12s}
+.dtab:hover{background:var(--hover);color:var(--fg)}
+.dtab.on{background:var(--panel);color:var(--fg);box-shadow:var(--shadow-sm)}
+.dtab .tthumb{width:20px;height:20px;border-radius:5px;image-rendering:pixelated;object-fit:contain;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
+.dtab .tname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtab .tclose{width:22px;height:22px;flex:none;border:0;background:transparent;border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.55}
+.dtab:hover .tclose,.dtab.on .tclose{opacity:1}
+.dtab .tclose:hover{background:var(--panel-2);color:var(--fg)}
+.tadd{width:30px;height:30px;flex:none;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:17px;cursor:pointer;padding:0}
+.tadd:hover{background:var(--hover);color:var(--fg)}
 .toolopts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:var(--panel);border-radius:14px;padding:6px 12px;min-height:42px;box-shadow:var(--shadow)}
 .toolopts .tname{font-weight:600}
 .toolopts .hint{color:var(--muted);font-size:12px}
@@ -325,6 +337,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
     </nav>
 
     <section class="stagecol">
+      <div class="doctabs" id="docTabs" role="tablist" aria-label="열린 캔버스"></div>
       <div class="toolopts" id="toolOpts"></div>
       <div class="stage" id="stage"><canvas id="view"></canvas><div class="drop" id="dropHint" hidden>파일을 놓으면 열립니다</div></div>
       <div class="status"><span>좌표 <span class="mono" id="stPos">–</span></span><span id="stSize"></span><span id="stHint"></span></div>

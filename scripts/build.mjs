@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
-const EDITOR = ['core.js', 'i18n.js', 'palettes.js', 'ui.js', 'aseprite.js', 'timelapse.js', 'conv.js', 'recolor.js', 'comp.js', 'ai.js'];
+const EDITOR = ['core.js', 'i18n.js', 'palettes.js', 'ui.js', 'aseprite.js', 'timelapse.js', 'conv.js', 'recolor.js', 'comp.js', 'tabs.js', 'ai.js'];
 
 function editorJs(extra = []) {
   return [...EDITOR.map(f => read('src/editor/' + f)), ...extra.map(f => read(f)), read('src/editor/init.js')].join('');

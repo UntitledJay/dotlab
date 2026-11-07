@@ -599,6 +599,7 @@ function deserialize(o){
   const d={name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags}; if(comp) d.comp=comp; return d;
 }
 let saveT=null;
-function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',serialize()); }catch(e){} },700); }
-function loadAutosave(){ try{ const s=localStorage.getItem('dotlab.autosave'); if(!s) return null; return deserialize(JSON.parse(s)); }catch(e){ return null; } }
+// autosave keeps every open canvas (workspaceData / parseWorkspace in tabs.js)
+function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',workspaceData()); }catch(e){} },700); }
+function loadAutosave(){ try{ const s=localStorage.getItem('dotlab.autosave'); return s?parseWorkspace(s):null; }catch(e){ return null; } }
 function replaceDoc(nd){ if(!nd.tags) nd.tags=[]; ui.playTag=-1; docChange(()=>{ doc=nd; ui.layer=doc.layers.length-1; ui.frame=0; }); setSel(null); ui.lastPt=null; resetTL(); fitView(); }

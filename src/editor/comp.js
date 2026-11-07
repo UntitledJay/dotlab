@@ -143,7 +143,8 @@ function setMode(m){
   renderComp(); renderTimeline(); requestDraw();
 }
 function makeComponentFromArt(){ docChange(()=>{ const m=Math.max(1,Math.floor(Math.min(doc.w,doc.h)/4)); doc.comp={kind:'custom',slice:{l:m,t:m,r:m,b:m},pad:fitPad({l:m,t:m,r:m,b:m},doc.w,doc.h),padAuto:true,lock:false,fill:'stretch',label:''}; doc.frames.forEach((f,i)=>{ if(!f.name) f.name=i===0?'기본':`상태 ${i+1}`; }); }); toast('지금 그림을 컴포넌트로 바꿨습니다. 캔버스의 분홍 가이드를 끌어 늘어날 부분을 정하세요.'); }
-function startTemplate(kind){ replaceDoc(compTemplateDoc(kind,compBase())); ui.layer=0; renderLayers(); toast(`「${COMPKINDS[kind].name}」 템플릿을 열었습니다. 모서리·테두리는 잠겨 있고 안쪽만 그릴 수 있습니다.`); }
+// a template replaces a component being tried out, but pixel art keeps its own tab
+function startTemplate(kind){ const nd=compTemplateDoc(kind,compBase()); if(doc.comp) replaceDoc(nd); else openDoc(nd); ui.layer=0; renderLayers(); toast(`「${COMPKINDS[kind].name}」 템플릿을 열었습니다. 모서리·테두리는 잠겨 있고 안쪽만 그릴 수 있습니다.`); }
 // redraws every state with new generation options (one undo step); hand edits are replaced
 function regenComp(patch){
   const C=doc.comp; if(!C||!C.opts||!COMPKINDS[C.kind]) return;
@@ -174,7 +175,7 @@ function libSave(asNew){
   scheduleSave(); renderComp(); toast(over?`「${doc.name}」을(를) 덮어 저장했습니다`:`「${doc.name}」을(를) 내 컴포넌트에 저장했습니다`);
 }
 function libOpen(id){ const e=libLoad().find(x=>x.id===id); if(!e) return;
-  try{ const nd=deserialize(JSON.parse(e.data)); if(!nd.comp) throw new Error(); nd.comp.libId=id; replaceDoc(nd); ui.layer=0; renderLayers(); toast(`「${nd.name}」을(를) 열었습니다`); }
+  try{ const nd=deserialize(JSON.parse(e.data)); if(!nd.comp) throw new Error(); nd.comp.libId=id; openDoc(nd); ui.layer=0; renderLayers(); toast(`「${nd.name}」을(를) 열었습니다`); }
   catch(err){ toast('이 컴포넌트를 읽지 못했습니다. 라이브러리 파일을 다시 가져와 보세요.'); } }
 function libDelete(id){ const list=libLoad(), e=list.find(x=>x.id===id); if(!e) return;
   modal({title:'컴포넌트 삭제',body:h('p',{class:'hint',text:`「${e.name}」을(를) 내 컴포넌트에서 지웁니다. 지금 열려 있는 그림은 그대로 남습니다. 되돌릴 수 없으니 필요하면 먼저 라이브러리를 파일로 내보내세요.`}),

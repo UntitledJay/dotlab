@@ -14,7 +14,7 @@
 npm install                 # playwright (테스트용)
 npx playwright install chromium   # 처음 한 번
 npm run build               # dist/web, dist/figma, dist/pages 셋 다
-npm test                    # 빌드 후 테스트 8개 파일 실행
+npm test                    # 빌드 후 테스트 9개 파일 실행
 ```
 
 - Chromium을 따로 설치한 환경이면 `CHROMIUM_PATH=/path/to/chrome npm test`로 실행합니다.
@@ -36,6 +36,7 @@ src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF. AI 결과를 �
 src/editor/conv.js      이미지 → 도트 (격자 자동 감지, 색 정리, 배경 제거)
 src/editor/recolor.js   색감 옮기기 (밝기 순서대로 바꾸기 / Lab 색공간에서 분위기만 맞추기)
 src/editor/comp.js      UI 컴포넌트 모드: 템플릿 8종과 모양 옵션, 상태, 9-slice(계산·캔버스 가이드)·모서리 잠금·안쪽 영역, 늘린 미리보기, 내 컴포넌트 라이브러리, 내보내기(PNG·JSON·CSS)
+src/editor/tabs.js      열린 캔버스 여러 개(탭): 탭마다 문서·실행 취소·타임랩스·화면 위치·색 선택, 탭 띠, 전체 자동 저장(workspaceData)
 src/editor/ai.js        AI 생성 (후보, 부분 다시 그리기, 팔레트 생성) + 웹 버전 기능 연결(initCapabilities)
 src/editor/init.js      이벤트 연결, 단축키, init()
 src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저장, 파일 다운로드, Anthropic API 호출, 캔버스 넣기·가져오기
@@ -51,7 +52,7 @@ docs/plan.html          기획서
 
 ## 구조에서 꼭 알아야 할 점
 
-**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → i18n → palettes → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, Pages는 `platform/pages`, 마지막에 `init`입니다. Pages 빌드는 shell의 `<div id="app">` 앞부분(제목·폰트·스타일)을 `<head>`에 넣고, 아티팩트 호스트가 대신 넣어 주던 `[hidden]` 리셋을 직접 넣습니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
+**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → i18n → palettes → ui → aseprite → timelapse → conv → recolor → comp → tabs → ai`) 다음에 Figma는 `platform/figma`, Pages는 `platform/pages`, 마지막에 `init`입니다. Pages 빌드는 shell의 `<div id="app">` 앞부분(제목·폰트·스타일)을 `<head>`에 넣고, 아티팩트 호스트가 대신 넣어 주던 `[hidden]` 리셋을 직접 넣습니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
 
 **플랫폼 차이는 함수 재선언으로 바꿉니다.** 같은 스크립트 안에서는 나중에 선언된 `function`이 이깁니다. `platform/figma.js`는 다음을 다시 선언합니다.
 
@@ -60,6 +61,7 @@ docs/plan.html          기획서
 | `scheduleSave` / `loadAutosave` | `localStorage` | 메인 스레드를 거쳐 `figma.clientStorage` |
 | `offerFiles` | 아티팩트 `downloads` 기능 | `anchorDownload`(`<a download>`, Pages도 같음) |
 | `initCapabilities` | `claude.use('sample')`, `claude.use('downloads')` | `claudeShim`(Anthropic Messages API 스트리밍) |
+| `tabExtraSave` / `tabExtraLoad` | 없음 | 탭마다 연결된 Figma 개체(`FG.linkedId`) |
 | `prefLoad` / `prefStore` | `localStorage`(`dotlab.prefs`) | 메인 스레드를 거쳐 `figma.clientStorage`(`prefs`) |
 
 `let`/`const`는 재선언할 수 없으므로, 플랫폼별로 바꿔야 하는 값은 `function`이나 객체 속성으로 둡니다. Figma 빌드는 마지막 `init();`을 `boot();`로 바꿉니다. `boot()`는 메인 스레드의 `init` 메시지(자동 저장본과 API 키)를 받은 뒤 `init()`을 부릅니다.
@@ -89,6 +91,7 @@ doc = {
 - **태그**: 프레임을 넣거나 지우면 `shiftTags`가 범위를 맞춥니다. 재생과 GIF는 `playSequence(range)`로 프레임 순서를 만듭니다. 핑퐁은 끝 프레임을 반복하지 않습니다(Aseprite와 같은 방식).
 
 - 픽셀 값 `0`은 투명, `v`는 `palette[v-1]`입니다(인덱스 컬러). 팔레트를 바꾸면 그림 전체가 바뀝니다. 색을 지우거나 순서를 바꿀 때는 `remapAll(map)`으로 모든 cel을 다시 매핑합니다.
+- **열린 캔버스(탭)**: 활성 탭의 문서가 전역 `doc`이고, 나머지는 `TABS.list`에 실행 취소 기록(`hist`/`redoS`를 옮겨 담음)·타임랩스·화면 위치·주/보조 색과 함께 보관됩니다. 문서를 **새로 여는** 곳(새로 만들기, 열기, 이미지 → 새 캔버스, 내 컴포넌트 열기, Figma 선택 편집, 도트 그림에서 템플릿 시작)은 `openDoc(nd)`로 새 탭을 만들고, `replaceDoc(nd)`는 지금 탭의 문서를 바꿉니다(실행 취소 가능). 다른 탭 문서를 읽을 때는 `withDoc(d, fn)`으로 잠깐 전역 `doc`을 바꿉니다. 탭은 최대 12개입니다. 자동 저장은 `{format:'dotlab-workspace',version:1,active,docs:[serialize() 문자열…]}`이고, 예전의 단일 프로젝트 자동 저장도 읽습니다(`parseWorkspace`).
 - 저장 형식(`serialize`/`deserialize`): `{format:'dotlab',version:3,...,tags,comp}`이고(프레임에 `name`이 붙을 수 있음), cel은 RLE 후 base64 문자열이거나, 링크면 `{link: 앞 프레임 번호}`입니다. version 1·2 파일(태그·링크·컴포넌트 없음)도 그대로 읽습니다. 형식을 바꾸면 `version`을 올리고 이전 버전 읽기를 유지합니다. Figma에 넣은 개체의 `pluginData('dotlab')`에도 같은 문자열이 들어갑니다.
 
 ## 편집 규칙 (실행 취소와 다시 그리기)
@@ -106,7 +109,7 @@ doc = {
 | UI → 메인 | 내용 |
 | --- | --- |
 | `ready` | UI 준비 완료. 메인이 `init`과 `selection`으로 답함 |
-| `autosave {data}` | 직렬화한 문서를 clientStorage에 저장 |
+| `autosave {data}` | 열린 캔버스 전체(`workspaceData()`)를 clientStorage에 저장 |
 | `library {data}` | 「내 컴포넌트」 목록(JSON 문자열)을 clientStorage `library`에 저장 |
 | `prefs {data}` | 화면 설정(언어·테마·팔레트 모음, JSON 문자열)을 clientStorage `prefs`에 저장 |
 | `set-key {key}` | API 키 저장(빈 문자열이면 삭제) |
@@ -163,6 +166,7 @@ doc = {
 | `tests/component.test.mjs` | 컴포넌트 모드 전환·템플릿(상태 수·이름·서로 다른 그림), 9-slice 계산(모서리 1:1, 가장자리 늘림), 캔버스 가이드 끌기와 실행 취소, 숫자 입력·상태 이름·빈 상태, 저장 형식 v3와 v2 읽기, 내보내기 파일·JSON 여백·CSS 선택자, 고정 크기 컴포넌트, 지금 그림을 컴포넌트로, 모서리 잠금(연필·채우기가 테두리로 새지 않음, 도트 모드에선 풀림), 모양 옵션 다시 그리기와 실행 취소·직접 고친 안쪽 영역 유지, 안쪽 반복(타일)과 CSS padding·round, 내 컴포넌트 저장·덮어쓰기·새로 저장·열기·파일 왕복·삭제, 폰 폭 |
 | `tests/pages.test.mjs` | Pages 빌드가 완전한 문서인지, HTTP로 열어 오류 없이 뜨는지, AI 안내, 저장·PNG 내보내기가 실제 다운로드인지(내용 확인), 폰 폭 |
 | `tests/prefs.test.mjs` | 다크 시스템에서도 라이트로 시작, 테마 전환과 캔버스 색, 1400px에서 상단 바 한 줄, 영어 전환 후 탭·대화상자·컴포넌트 패널·토스트에 한국어가 남지 않음, 사용자 이름은 그대로, 한국어로 되돌리기, 새로고침 후 설정 유지, 팔레트 모음(저장·없는 색 추가와 실행 취소·있는 색 선택·바꾸기·삭제) |
+| `tests/tabs.test.mjs` | 새 캔버스가 새 탭으로, 탭마다 따로인 편집·실행 취소·화면 위치, 탭 이름이 문서 이름을 따름, 파일 열기도 새 탭, 새로고침 후 모든 탭과 활성 탭 복원, 예전 자동 저장 읽기, 닫기 확인·마지막 탭 닫기, 도트 그림에서 템플릿은 새 탭, 폰 폭 |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.

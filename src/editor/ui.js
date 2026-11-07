@@ -19,6 +19,7 @@ function drawThumb(cv,data){ cv.width=doc.w; cv.height=doc.h; cv.getContext('2d'
 function updateThumbs(){
   for(const [cv,id] of layerThumbs) drawThumb(cv,composite(ui.frame,id));
   frameThumbs.forEach((cv,i)=>{ cv.width=doc.w; cv.height=doc.h; cv.getContext('2d').drawImage(frameCanvas(i),0,0); });
+  updTabThumb();
 }
 function renderLayers(){
   const list=$('#layerList'); list.textContent=''; layerThumbs=[];
@@ -99,7 +100,7 @@ function updStatus(p){
 function toggleBtn(id,key,after){ const b=$(id); b.setAttribute('aria-pressed',String(!!ui[key])); b.onclick=()=>{ ui[key]=!ui[key]; b.setAttribute('aria-pressed',String(ui[key])); after&&after(); requestDraw(); }; }
 function refreshAll(){
   updPal(); invalidate(); renderColors(); renderPalette(); renderLayers(); renderTimeline(); renderToolOpts(); renderAISize(); renderEditHint(); renderCands(); renderComp();
-  $('#docName').value=doc.name; updStatus(); updHistBtns(); requestDraw();
+  $('#docName').value=doc.name; updStatus(); updHistBtns(); renderTabs(); requestDraw();
 }
 
 /* ================= modal ================= */
@@ -119,8 +120,8 @@ function newDialog(){
   const wi=h('input',{type:'number',min:1,max:MAXSIZE,value:W,'aria-label':'너비',style:'width:80px'}), hi=h('input',{type:'number',min:1,max:MAXSIZE,value:H,'aria-label':'높이',style:'width:80px'});
   const sizes=h('div',{class:'sizes'},[8,16,24,32,48,64,128].map(s=>h('button',{class:'btn sm',text:`${s}×${s}`,onclick:()=>{ wi.value=s; hi.value=s; }})));
   const ps=h('select',{'aria-label':'팔레트'},h('option',{value:'',text:'지금 쓰는 팔레트 유지'}),Object.keys(PRESETS).map(k=>h('option',{value:k,text:k})));
-  modal({title:'새 캔버스',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},sizes,h('div',{class:'row2'},h('label',null,'너비',wi),h('label',null,'높이',hi),h('span',{class:'hint',text:`최대 ${MAXSIZE}px`})),h('label',{class:'row2',style:'color:var(--muted)'},'팔레트 ',ps),h('p',{class:'hint',text:'지금 작업은 실행 취소(Ctrl+Z)로 되돌릴 수 있습니다. 보관하려면 먼저 저장하세요.'})),
-    actions:[{label:'취소'},{label:'만들기',primary:true,onClick:()=>{ const w=clamp(wi.value|0,1,MAXSIZE), hh=clamp(hi.value|0,1,MAXSIZE); const pal=ps.value?PRESETS[ps.value]:doc.palette; replaceDoc(makeDoc(w,hh,pal,'새 작품')); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; renderColors(); renderPalette(); }}]});
+  modal({title:'새 캔버스',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},sizes,h('div',{class:'row2'},h('label',null,'너비',wi),h('label',null,'높이',hi),h('span',{class:'hint',text:`최대 ${MAXSIZE}px`})),h('label',{class:'row2',style:'color:var(--muted)'},'팔레트 ',ps),h('p',{class:'hint',text:'새 탭으로 열립니다. 지금 캔버스는 원래 탭에 그대로 남습니다.'})),
+    actions:[{label:'취소'},{label:'만들기',primary:true,onClick:()=>{ const w=clamp(wi.value|0,1,MAXSIZE), hh=clamp(hi.value|0,1,MAXSIZE); const pal=ps.value?PRESETS[ps.value]:doc.palette; openDoc(makeDoc(w,hh,pal,L('새 작품'))); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; renderColors(); renderPalette(); }}]});
 }
 function editColor(v,isNew){
   if(!isNew&&!v){ toast('투명은 편집할 수 없습니다. 다른 색을 고르세요.'); return; }
@@ -280,10 +281,10 @@ function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createO
 async function handleFile(f){
   if(!f) return; const n=f.name.toLowerCase();
   try{
-    if(n.endsWith('.json')){ const o=JSON.parse(await readText(f)); if(o&&o.format==='dotlab-library'){ libImport(o); return; } const nd=deserialize(o); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
+    if(n.endsWith('.json')){ const o=JSON.parse(await readText(f)); if(o&&o.format==='dotlab-library'){ libImport(o); return; } const nd=deserialize(o); openDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
     else if(/\.(hex|gpl|txt)$/.test(n)){ const cols=parsePaletteText(await readText(f)); if(!cols.length) throw new Error('파일에서 색을 찾지 못했습니다'); presetDialog(cols,`팔레트 가져오기 (${cols.length}색)`); }
     else if(f.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)){ showTab('pConv'); await setConvImage(f); }
-    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); replaceDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }
+    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); openDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }
     else toast('열 수 없는 파일 형식입니다');
   }catch(e){ toast(e.message||'파일을 열지 못했습니다'); }
 }

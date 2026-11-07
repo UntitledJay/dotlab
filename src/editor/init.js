@@ -9,7 +9,7 @@ function init(prefs){
   for(const t of TOOLDEFS) tb.append(h('button',{class:'tool','data-tool':t.id,'aria-pressed':'false','aria-label':t.name,title:`${t.name} (${t.key})`,html:ICON[t.id],onclick:()=>setTool(t.id)}));
   $('#lAdd').innerHTML=ICON.plus; $('#lDup').innerHTML=ICON.copy; $('#lUp').innerHTML=ICON.up; $('#lDown').innerHTML=ICON.down; $('#lMerge').innerHTML=ICON.merge; $('#lDel').innerHTML=ICON.trash;
 
-  const saved=loadAutosave(); doc=saved||sampleDoc(); updPal(); recalcIds(); ui.layer=doc.layers.length-1;
+  const saved=loadAutosave(); tabsInit(saved); updPal(); recalcIds(); ui.layer=doc.layers.length-1;
   if(!saved) setTimeout(()=>toast('예시 작품을 열었습니다. 새로 만들기로 빈 캔버스를 시작할 수 있습니다.'),600);
   else setTimeout(()=>toast('자동 저장된 작업을 불러왔습니다'),600);
 

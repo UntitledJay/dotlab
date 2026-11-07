@@ -159,8 +159,8 @@ async function setConvImage(f){
 function convOpenNew(){
   const r=buildConv('new'); if(!r) return;
   const nd=makeDoc(r.w,r.h,r.palette,conv.name||'가져온 이미지'); nd.layers[0].name='가져온 이미지'; nd.frames[0].cels[1].set(r.vals);
-  replaceDoc(nd); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; setTool('pencil'); renderColors(); renderPalette();
-  toast(`${r.w}×${r.h} 새 캔버스로 열었습니다. 바로 수정하세요. 이전 작업은 Ctrl+Z로 돌아갈 수 있습니다.`);
+  openDoc(nd); ui.primary=Math.min(1,doc.palette.length); ui.secondary=0; setTool('pencil'); renderColors(); renderPalette();
+  toast(`${r.w}×${r.h} 새 캔버스(새 탭)로 열었습니다. 바로 수정하세요. 이전 작업은 원래 탭에 그대로 있습니다.`);
 }
 function convInsert(){
   const r=buildConv('layer'); if(!r) return; const ox=Math.floor((doc.w-r.w)/2), oy=Math.floor((doc.h-r.h)/2);

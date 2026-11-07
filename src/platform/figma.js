@@ -10,7 +10,7 @@ function onMain(m){
     showTab('pConv'); setConvImage(f).then(()=>toast('선택한 레이어를 가져왔습니다. 격자를 확인한 뒤 「새 캔버스로 열어 수정」을 누르세요.')).catch(err=>toast(err.message));
   }
   else if(m.type==='open-project'){
-    try{ const nd=deserialize(JSON.parse(m.data)); replaceDoc(nd); FG.linkedId=m.nodeId; FG.linkedName=m.name||nd.name; renderFgSel(); toast('도트랩 개체를 열었습니다. 고친 뒤 「Figma에 넣기」로 원래 자리에 교체하세요.'); }
+    try{ const nd=deserialize(JSON.parse(m.data)); openDoc(nd); FG.linkedId=m.nodeId; FG.linkedName=m.name||nd.name; renderFgSel(); toast('도트랩 개체를 열었습니다. 고친 뒤 「Figma에 넣기」로 원래 자리에 교체하세요.'); }
     catch(err){ toast('이 개체의 도트랩 데이터를 읽지 못했습니다'); }
   }
   else if(m.type==='inserted'){ FG.linkedId=m.nodeId; FG.linkedName=m.name; renderFgSel(); toast(m.updated?'Figma 개체를 교체했습니다':'Figma 캔버스에 넣었습니다'); }
@@ -18,8 +18,11 @@ function onMain(m){
 }
 
 /* storage: figma.clientStorage through the main thread */
-function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ toMain({type:'autosave',data:serialize()}); }catch(e){} },800); }
-function loadAutosave(){ try{ const s=FG.init&&FG.init.autosave; return s?deserialize(JSON.parse(s)):null; }catch(e){ return null; } }
+function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ toMain({type:'autosave',data:workspaceData()}); }catch(e){} },800); }
+function loadAutosave(){ try{ const s=FG.init&&FG.init.autosave; return s?parseWorkspace(s):null; }catch(e){ return null; } }
+// each open canvas remembers the Figma object it came from or was inserted as
+function tabExtraSave(){ return {linkedId:FG.linkedId,linkedName:FG.linkedName}; }
+function tabExtraLoad(x){ FG.linkedId=x.linkedId||null; FG.linkedName=x.linkedName||''; renderFgSel(); }
 
 /* 「내 컴포넌트」 library: figma.clientStorage through the main thread */
 function libLoad(){ try{ const a=JSON.parse(FG.lib!=null?FG.lib:((FG.init&&FG.init.library)||'[]')); return Array.isArray(a)?a:[]; }catch(e){ return []; } }

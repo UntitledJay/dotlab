@@ -39,7 +39,7 @@ const I18N={lang:'ko',en:{
 '클릭: 주 색상 · 오른쪽 클릭: 보조 색상 · 더블클릭: 색 편집':'Click: primary · right click: secondary · double-click: edit','색 추가':'Add colour','편집':'Edit','램프':'Ramp','프리셋':'Presets','가져오기':'Import','주 색상에서 보조 색상까지 중간색 만들기':'Make in-between colours from primary to secondary',
 '더블클릭해 이름 바꾸기':'Double-click to rename','레이어 이름':'Layer name','숨기기':'Hide','레이어 숨기기':'Hide layer','레이어 보이기':'Show layer','알파 잠금':'Alpha lock','외곽선 효과':'Outline effect','외곽':'Outline','잠금 풀기':'Unlock','잠그기':'Lock','레이어 잠금 풀기':'Unlock layer','레이어 잠그기':'Lock layer',
 '이미 칠한 픽셀만 다시 칠합니다':'Only repaints pixels that are already painted','켜는 순간의 주 색상으로 1px 외곽선을 그립니다. 원본 픽셀은 바뀌지 않습니다.':'Draws a 1px outline in the primary colour at the moment you turn it on. The pixels themselves don\'t change.',
-'투명':'Transparent','도트랩 에디터':'DotLab editor','도트랩':'DotLab','캔버스 전체':'whole canvas','팔레트 모음':'Palette shelf','모음':'Shelf','여러 팔레트를 한눈에 보고 색을 가져옵니다':'See several palettes at once and pick colours from them','지금 팔레트 저장':'Save current palette','저장한 팔레트':'Saved palettes','지금 팔레트':'Current palette','바꾸기':'Use',
+'투명':'Transparent','열린 캔버스':'Open canvases','캔버스 닫기':'Close canvas','새 캔버스 (새 탭)':'New canvas (new tab)','새 탭으로 열립니다. 지금 캔버스는 원래 탭에 그대로 남습니다.':'Opens in a new tab. The current canvas stays in its own tab.','도트랩 에디터':'DotLab editor','도트랩':'DotLab','캔버스 전체':'whole canvas','팔레트 모음':'Palette shelf','모음':'Shelf','여러 팔레트를 한눈에 보고 색을 가져옵니다':'See several palettes at once and pick colours from them','지금 팔레트 저장':'Save current palette','저장한 팔레트':'Saved palettes','지금 팔레트':'Current palette','바꾸기':'Use',
 '이 팔레트로 바꾸기':'Switch to this palette','팔레트 이름':'Palette name','팔레트 저장':'Save palette','모음에 저장':'Save to shelf','팔레트를 모음에 저장했습니다':'Saved the palette to the shelf','팔레트를 지웠습니다':'Deleted the palette','팔레트 삭제':'Delete palette',
 '색을 클릭하면 주 색상으로, 오른쪽 클릭하면 보조 색상으로 씁니다. 지금 팔레트에 없는 색은 끝에 추가됩니다.':'Click a colour to use it as primary, right click for secondary. Colours not in the current palette are added at the end.',
 '아직 저장한 팔레트가 없습니다. 지금 팔레트나 AI가 만든 팔레트를 저장해 두면 여기서 함께 볼 수 있습니다.':'No saved palettes yet. Save the current palette or one the AI made, and it shows up here.',
@@ -146,7 +146,11 @@ pats:[
  ['{}×{} (캔버스 전체)','{1}×{2} (whole canvas)'],['현재 팔레트의 {}색만 사용해 그립니다. 결과는 그리드에 딱 맞는 인덱스 픽셀이라 바로 손으로 다듬을 수 있습니다.','Draws with only the {1} colours of the current palette. The result is indexed pixels on the grid, ready to polish by hand.'],
  ['선택한 {}×{} 영역만 다시 그립니다. 주변 픽셀과 이어지도록 맞춥니다.','Redraws only the selected {1}×{2} area, matching the pixels around it.'],['그리는 중… {}/{}줄','Drawing… {1}/{2} rows'],['수정: {}','Edit: {1}'],['{} · {}색','{1} · {2} colours'],['팔레트 적용: {}','Apply palette: {1}'],
  ['저장된 키 …{}','Saved key …{1}'],['{}번 프레임 하나를 넣습니다.','Inserts frame {1} only.'],['프레임 {}개를 가로로 나란히 담은 프레임으로 넣습니다.','Inserts all {1} frames side by side in one frame.'],['컴포넌트로 넣기 (상태 {}개 → 변형)','Insert as a component ({1} states → variants)'],['연결된 개체 「{}」를 이 결과로 교체','Replace the linked object "{1}" with this'],
- ['Figma 선택: {} 외 {}개','Figma selection: {1} and {2} more'],['Figma 선택: {}','Figma selection: {1}'],['{}색','{1} colours'],
+ ['Figma 선택: {} 외 {}개','Figma selection: {1} and {2} more'],['Figma 선택: {}','Figma selection: {1}'],['「{}」 닫기','Close "{1}"'],
+ ['「{}」을(를) 닫습니다. 실행 취소 기록도 함께 사라집니다. 보관하려면 먼저 저장하세요.','Closes "{1}" along with its undo history. Save it first to keep it.'],
+ ['캔버스는 {}개까지 열 수 있어 지금 탭을 바꿨습니다. Ctrl+Z로 되돌릴 수 있습니다.','Up to {1} canvases can be open, so the current tab was replaced. Ctrl+Z undoes it.'],
+ ['{}×{} 새 캔버스(새 탭)로 열었습니다. 바로 수정하세요. 이전 작업은 원래 탭에 그대로 있습니다.','Opened as a new {1}×{2} canvas in a new tab. Edit away; the previous work is still in its own tab.'],
+ ['{} · {}×{}','{1} · {2}×{3}'],['{}색','{1} colours'],
  // generic shapes last, so the specific sentences above win
  ['{} ({})','{1} ({2})'],
 ]};
