@@ -12,7 +12,7 @@
     "figma:id": "node scripts/set-figma-id.mjs",
     "figma:assets": "node scripts/figma-assets.mjs",
     "figma:check": "node scripts/check-figma-release.mjs",
-    "test": "node scripts/build.mjs && node --test --test-concurrency=1 tests/editor.test.mjs tests/grid-detect.test.mjs tests/figma-main.test.mjs tests/figma-ui.test.mjs tests/v1-features.test.mjs tests/component.test.mjs tests/pages.test.mjs",
+    "test": "node scripts/build.mjs && node --test --test-concurrency=1 tests/editor.test.mjs tests/grid-detect.test.mjs tests/figma-main.test.mjs tests/figma-ui.test.mjs tests/v1-features.test.mjs tests/component.test.mjs tests/pages.test.mjs tests/prefs.test.mjs",
     "serve": "npx --yes http-server dist -p 5173 -c-1"
   },
   "devDependencies": {

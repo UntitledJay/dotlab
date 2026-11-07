@@ -12,7 +12,7 @@ function renderPalette(){
     swatchStyle(b,v); if(ui.primary===v) b.classList.add('pri'); if(ui.secondary===v) b.classList.add('sec'); return b; };
   g.append(mk(0)); for(let v=1;v<=doc.palette.length;v++) g.append(mk(v));
   $('#palCount').textContent=`${doc.palette.length} / ${MAXPAL}`;
-  renderAIHints();
+  renderAIHints(); renderShelf();
 }
 let layerThumbs=[], frameThumbs=[];
 function drawThumb(cv,data){ cv.width=doc.w; cv.height=doc.h; cv.getContext('2d').putImageData(new ImageData(data,doc.w,doc.h),0,0); }
@@ -24,7 +24,7 @@ function renderLayers(){
   const list=$('#layerList'); list.textContent=''; layerThumbs=[];
   for(let k=doc.layers.length-1;k>=0;k--){
     const L=doc.layers[k]; const cv=h('canvas',{class:'thumb checker'}); layerThumbs.push([cv,L.id]);
-    const name=h('span',{class:'lname',text:L.name,title:'더블클릭해 이름 바꾸기'});
+    const name=h('span',{class:'lname','data-i18n':'off',text:L.name,title:'더블클릭해 이름 바꾸기'});
     name.addEventListener('dblclick',e=>{ e.stopPropagation(); const inp=h('input',{value:L.name,'aria-label':'레이어 이름'}); name.textContent=''; name.append(inp); inp.focus(); inp.select();
       const done=()=>{ const v=inp.value.trim(); if(v) L.name=v.slice(0,40); renderLayers(); scheduleSave(); };
       inp.addEventListener('blur',done); inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){ inp.value=L.name; inp.blur(); } }); });
@@ -55,7 +55,7 @@ function renderTimeline(){
     list.append(h('button',{class:'fcell'+(i===ui.frame?' on':'')+(linked?' linked':''),style:tag?`--tc:${tag.color}`:null,'data-tag':tag?'1':null,
       title:`프레임 ${i+1} · ${f.dur}ms`+(linked?' · 「'+activeLayer().name+'」 셀이 앞 프레임과 링크됨':'')+(tag?` · 태그 「${tag.name}」`:''),onclick:()=>gotoFrame(i),ondblclick:()=>{ if(ui.mode==='comp'&&doc.comp) renameState(i); }},cv,ui.mode==='comp'&&doc.comp?h('span',{class:'fn st',text:stateName(i),title:'더블클릭해 상태 이름 바꾸기'}):h('span',{class:'fn',text:String(i+1)}))); });
   const row=$('#tagRow'); row.textContent='';
-  doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),`${t.name} · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:{reverse:'역방향',pingpong:'핑퐁',pingpong_reverse:'역방향 핑퐁'}[t.dir]}):null)));
+  doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),h('span',{'data-i18n':'off',text:t.name}),` · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:{reverse:'역방향',pingpong:'핑퐁',pingpong_reverse:'역방향 핑퐁'}[t.dir]}):null)));
   row.hidden=!doc.tags.length;
   if(ui.playTag>=doc.tags.length) ui.playTag=-1;
   const ps=$('#playScope'); ps.textContent=''; ps.append(h('option',{value:-1,text:'전체 프레임'}),...doc.tags.map((t,k)=>h('option',{value:k,text:'태그: '+t.name}))); ps.value=String(ui.playTag);

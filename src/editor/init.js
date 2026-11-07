@@ -1,8 +1,8 @@
 /* ================= wiring ================= */
 function showTab(id){ $$('.tab').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tab===id))); $$('.tabpanel').forEach(p=>p.hidden=p.id!==id); try{ localStorage.setItem('dotlab.tab',id); }catch(e){} }
-function init(){
+function init(prefs){
+  prefsInit(prefs); setTheme(prefGet('theme','light')); I18N.lang=prefGet('lang','ko')==='en'?'en':'ko';
   readTokens();
-  const mq=window.matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener?.('change',()=>{ readTokens(); requestDraw(); });
   new MutationObserver(()=>{ readTokens(); requestDraw(); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
   const tb=$('#toolBtns');
@@ -30,6 +30,9 @@ function init(){
   $('#pAdd').onclick=()=>editColor(0,true); $('#pEdit').onclick=()=>editColor(ui.primary); $('#pDel').onclick=()=>deleteColor(ui.primary);
   $('#pRamp').onclick=rampDialog; $('#pPreset').onclick=()=>presetDialog(); $('#pImport').onclick=()=>$('#palFile').click(); $('#pExport').onclick=exportPalette;
   $('#palFile').addEventListener('change',e=>{ handleFile(e.target.files[0]); e.target.value=''; });
+  $('#pShelf').onclick=()=>toggleShelf();
+  $('#bTheme').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+  $$('#langSwitch .chip').forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
 
   $$('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
   try{ const t=localStorage.getItem('dotlab.tab'); if(t&&$('#'+t)) showTab(t); }catch(e){}
@@ -96,6 +99,7 @@ function init(){
   $$('#modeSwitch .chip').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
   renderPlayBtn(); setTool('pencil'); refreshAll(); resetTL(); renderXfer();
   let mode='dot'; try{ mode=localStorage.getItem('dotlab.mode')||'dot'; }catch(e){} setMode(mode);
+  toggleShelf(!!prefGet('shelf',false)); setLang(I18N.lang);
   new ResizeObserver(resizeView).observe(stage); resizeView();
   initCapabilities();
 }

@@ -26,6 +26,10 @@ function libLoad(){ try{ const a=JSON.parse(FG.lib!=null?FG.lib:((FG.init&&FG.in
 function libStore(list){ FG.lib=JSON.stringify(list); toMain({type:'library',data:FG.lib}); return true; }
 function libStoreHint(){ return 'Figma 계정의 플러그인 저장소에 보관됩니다(이 컴퓨터의 Figma). 다른 기기로 옮기거나 백업하려면 「파일로」 내려받으세요.'; }
 
+/* preferences (language, theme, saved palettes): figma.clientStorage through the main thread */
+function prefLoad(){ try{ const s=FG.init&&FG.init.prefs; return s?JSON.parse(s)||{}:{}; }catch(e){ return {}; } }
+function prefStore(p){ toMain({type:'prefs',data:JSON.stringify(p)}); }
+
 /* files: plain browser download inside the plugin window */
 async function offerFiles(files){ return anchorDownload(files); }
 
@@ -133,6 +137,6 @@ function initFigmaUI(){
   renderFgSel();
 }
 function boot(){
-  let started=false; const go=()=>{ if(started) return; started=true; init(); initFigmaUI(); };
+  let started=false; const go=()=>{ if(started) return; started=true; init(prefLoad()); initFigmaUI(); };
   FG.resolve=go; toMain({type:'ready'}); setTimeout(go,2000);
 }

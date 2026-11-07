@@ -106,7 +106,7 @@ async function aiPalette(){
     const cols=(val?.colors||[]).filter(isHex).map(normHex); if(!cols.length) throw {code:'invalid_json'};
     const nm=String(val.name||q).slice(0,40);
     out.append(h('b',{text:`${nm} · ${cols.length}색`}),h('div',{class:'swrow'},cols.map(c=>h('i',{style:'background:'+c,title:c}))),
-      h('div',{class:'actions'},h('button',{class:'btn sm primary',text:'적용 방법 고르기',onclick:()=>presetDialog(cols,`팔레트 적용: ${nm}`)}),h('button',{class:'btn sm',text:'끝에 추가',onclick:()=>applyPalette(cols,'append')})));
+      h('div',{class:'actions'},h('button',{class:'btn sm primary',text:'적용 방법 고르기',onclick:()=>presetDialog(cols,`팔레트 적용: ${nm}`)}),h('button',{class:'btn sm',text:'끝에 추가',onclick:()=>applyPalette(cols,'append')}),h('button',{class:'btn sm',text:'모음에 저장',onclick:()=>shelfSave(nm,cols)})));
     setAIStatus('팔레트를 만들었습니다');
   }catch(e){ aiError(e); }finally{ aiBusy(false); }
 }

@@ -14,7 +14,7 @@
 npm install                 # playwright (테스트용)
 npx playwright install chromium   # 처음 한 번
 npm run build               # dist/web, dist/figma, dist/pages 셋 다
-npm test                    # 빌드 후 테스트 7개 실행
+npm test                    # 빌드 후 테스트 8개 파일 실행
 ```
 
 - Chromium을 따로 설치한 환경이면 `CHROMIUM_PATH=/path/to/chrome npm test`로 실행합니다.
@@ -26,8 +26,10 @@ npm test                    # 빌드 후 테스트 7개 실행
 ## 폴더 구조
 
 ```
-src/shell.html          화면 마크업 + CSS 전체 (디자인 토큰, 라이트/다크)
+src/shell.html          화면 마크업 + CSS 전체 (디자인 토큰, 기본 라이트 + data-theme="dark")
 src/editor/core.js      유틸, 상태, 문서 모델, 합성·렌더, 히스토리, 그리기 도구, 선택, 레이어·프레임·팔레트 연산, 저장 형식
+src/editor/i18n.js      한국어/English: 영어 사전(I18N.en, 패턴 I18N.pats)과 화면 번역기(MutationObserver), setLang, L()
+src/editor/palettes.js  설정 저장(prefGet/prefSet), 테마(setTheme), 팔레트 모음(저장한 팔레트·프리셋을 나란히)
 src/editor/ui.js        패널 렌더링, 대화상자(태그 편집 포함), 파일 열기/내보내기, GIF 인코더
 src/editor/aseprite.js  .aseprite 읽기(인덱스·RGBA·그레이스케일)·쓰기(인덱스)
 src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF. AI 결과를 넣는 곳은 그 직전에 `TL.mark='ai'`를 두어 그 단계에 AI 표시가 붙게 합니다
@@ -48,7 +50,7 @@ docs/plan.html          기획서
 
 ## 구조에서 꼭 알아야 할 점
 
-**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, Pages는 `platform/pages`, 마지막에 `init`입니다. Pages 빌드는 shell의 `<div id="app">` 앞부분(제목·폰트·스타일)을 `<head>`에 넣고, 아티팩트 호스트가 대신 넣어 주던 `[hidden]` 리셋을 직접 넣습니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
+**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → i18n → palettes → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, Pages는 `platform/pages`, 마지막에 `init`입니다. Pages 빌드는 shell의 `<div id="app">` 앞부분(제목·폰트·스타일)을 `<head>`에 넣고, 아티팩트 호스트가 대신 넣어 주던 `[hidden]` 리셋을 직접 넣습니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
 
 **플랫폼 차이는 함수 재선언으로 바꿉니다.** 같은 스크립트 안에서는 나중에 선언된 `function`이 이깁니다. `platform/figma.js`는 다음을 다시 선언합니다.
 
@@ -57,6 +59,7 @@ docs/plan.html          기획서
 | `scheduleSave` / `loadAutosave` | `localStorage` | 메인 스레드를 거쳐 `figma.clientStorage` |
 | `offerFiles` | 아티팩트 `downloads` 기능 | `anchorDownload`(`<a download>`, Pages도 같음) |
 | `initCapabilities` | `claude.use('sample')`, `claude.use('downloads')` | `claudeShim`(Anthropic Messages API 스트리밍) |
+| `prefLoad` / `prefStore` | `localStorage`(`dotlab.prefs`) | 메인 스레드를 거쳐 `figma.clientStorage`(`prefs`) |
 
 `let`/`const`는 재선언할 수 없으므로, 플랫폼별로 바꿔야 하는 값은 `function`이나 객체 속성으로 둡니다. Figma 빌드는 마지막 `init();`을 `boot();`로 바꿉니다. `boot()`는 메인 스레드의 `init` 메시지(자동 저장본과 API 키)를 받은 뒤 `init()`을 부릅니다.
 
@@ -104,6 +107,7 @@ doc = {
 | `ready` | UI 준비 완료. 메인이 `init`과 `selection`으로 답함 |
 | `autosave {data}` | 직렬화한 문서를 clientStorage에 저장 |
 | `library {data}` | 「내 컴포넌트」 목록(JSON 문자열)을 clientStorage `library`에 저장 |
+| `prefs {data}` | 화면 설정(언어·테마·팔레트 모음, JSON 문자열)을 clientStorage `prefs`에 저장 |
 | `set-key {key}` | API 키 저장(빈 문자열이면 삭제) |
 | `import-selection` | 선택 노드가 도트랩 개체면 `open-project`, 아니면 1배 PNG로 `import-image` |
 | `insert {mode, frames, w, h, frameNames, project, replaceId, palette, asComponents, note}` | `vector`는 프레임마다 SVG 문자열과 `layerNames`, `image`는 PNG 바이트. `replaceId`가 있으면 그 자리에서 교체. `asComponents`면 프레임마다 컴포넌트를 만들어 `combineAsVariants`로 세트를 만들고(`frameNames`가 `상태=기본` 꼴), `note`(9-slice 여백)를 설명에 넣음 |
@@ -111,7 +115,7 @@ doc = {
 
 | 메인 → UI | 내용 |
 | --- | --- |
-| `init {autosave, apiKey, library}`, `selection {count, name, dotlab}` | 시작 정보(라이브러리 포함), 선택 변경 |
+| `init {autosave, apiKey, library, prefs}`, `selection {count, name, dotlab}` | 시작 정보(라이브러리·설정 포함), 선택 변경. `boot()`는 `init(prefLoad())`로 설정을 넘김 |
 | `open-project {data, nodeId, name}`, `import-image {bytes, name}` | 가져오기 결과 |
 | `inserted {nodeId, name, updated}`, `error {text}` | 넣기 결과, 오류 문구 |
 
@@ -125,9 +129,10 @@ doc = {
 
 ## 화면과 문구 규칙
 
+- **언어**: 소스의 화면 문구는 한국어로 씁니다. 영어 모드에서는 `i18n.js`가 화면에 나타나는 텍스트와 `title`·`aria-label`·`placeholder`·`alt`를 그때그때 바꾸고, 한국어로 돌아오면 원문을 되돌립니다(렌더 코드에서 번역 함수를 부를 필요 없음). **새 문구를 넣으면 `I18N.en`에 영어를 추가합니다.** 값이 들어가는 문장(`${}`)은 `I18N.pats`에 `{}` 자리표시로 넣습니다(고정 글자가 많은 패턴이 먼저 맞춰짐). 사용자가 지은 이름(레이어·태그·라이브러리·저장한 팔레트)을 보여 주는 요소에는 `data-i18n="off"`를 붙입니다. 새 문서·레이어 같은 기본 *데이터* 이름은 `L('새 작품')`처럼 만들 때의 언어로 정합니다. `tests/prefs.test.mjs`가 영어 모드에서 화면에 한국어가 남지 않는지 확인합니다.
 - 화면 문구는 한국어로 짧고 구체적으로 씁니다. 버튼은 하는 일을 말하고("새 캔버스로 열어 수정"), 오류는 무엇이 잘못됐고 어떻게 고치는지 말합니다.
 - 디자인: 중립 회색 바탕(`--bg`) 위의 둥근 프레임(`--frame`) 안에 흰 패널(`--panel`, 모서리 14~18px, `--shadow`)이 떠 있는 구성입니다. 선택 상태는 회색 칸(`--panel-2`, `--hover`), 세그먼트 컨트롤은 회색 트랙(`.tabs`, `.group.track`) 위 흰 칸 + `--shadow-sm`, 주 버튼(`.btn.primary`)은 `--raise-a/b/hi` 그라데이션으로 살짝 볼록하게 그립니다. 단축키는 키마다 `kbd` 키캡으로 보여 줍니다.
-- 색은 `src/shell.html`의 CSS 토큰(`--bg`, `--panel`, `--accent` 등)만 씁니다. 라이트·다크 둘 다 정의되어 있고, Figma 빌드는 `html.figma-dark` / `html.figma-light` 블록을 자동으로 만듭니다. 캔버스에 그리는 색은 `readTokens()`로 토큰에서 읽습니다.
+- 색은 `src/shell.html`의 CSS 토큰(`--bg`, `--panel`, `--accent` 등)만 씁니다. 기본은 라이트(화이트)이고 시스템 설정을 따르지 않습니다. 다크는 `:root[data-theme="dark"]`이고 상단 버튼(`setTheme`)으로 바꾸며 설정에 저장됩니다. Figma 빌드도 같은 방식입니다(Figma 테마를 따르지 않음). 캔버스에 그리는 색은 `readTokens()`로 토큰에서 읽습니다.
 - 결과물은 파일 하나여야 하므로 UI에 외부 라이브러리를 넣지 않습니다. 웹 버전만 Google Fonts를 씁니다(Figma 빌드에서는 제거됨).
 - 폰 폭(400px)에서 가로 스크롤이 생기지 않아야 합니다(테스트로 확인).
 
@@ -156,6 +161,7 @@ doc = {
 | `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스(AI 단계 표시), 색감 옮기기(두 방식, 미리보기), 숨긴 그룹·사용자 데이터 태그 색·역방향 핑퐁 가져오기, 비어 있는 링크 셀 보존 |
 | `tests/component.test.mjs` | 컴포넌트 모드 전환·템플릿(상태 수·이름·서로 다른 그림), 9-slice 계산(모서리 1:1, 가장자리 늘림), 캔버스 가이드 끌기와 실행 취소, 숫자 입력·상태 이름·빈 상태, 저장 형식 v3와 v2 읽기, 내보내기 파일·JSON 여백·CSS 선택자, 고정 크기 컴포넌트, 지금 그림을 컴포넌트로, 모서리 잠금(연필·채우기가 테두리로 새지 않음, 도트 모드에선 풀림), 모양 옵션 다시 그리기와 실행 취소·직접 고친 안쪽 영역 유지, 안쪽 반복(타일)과 CSS padding·round, 내 컴포넌트 저장·덮어쓰기·새로 저장·열기·파일 왕복·삭제, 폰 폭 |
 | `tests/pages.test.mjs` | Pages 빌드가 완전한 문서인지, HTTP로 열어 오류 없이 뜨는지, AI 안내, 저장·PNG 내보내기가 실제 다운로드인지(내용 확인), 폰 폭 |
+| `tests/prefs.test.mjs` | 다크 시스템에서도 라이트로 시작, 테마 전환과 캔버스 색, 1400px에서 상단 바 한 줄, 영어 전환 후 탭·대화상자·컴포넌트 패널·토스트에 한국어가 남지 않음, 사용자 이름은 그대로, 한국어로 되돌리기, 새로고침 후 설정 유지, 팔레트 모음(저장·없는 색 추가와 실행 취소·있는 색 선택·바꾸기·삭제) |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.

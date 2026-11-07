@@ -69,6 +69,8 @@ const ICON={
   trash:px('...###... ######### .#.....#. .#.#.#.#. .#.#.#.#. .#.#.#.#. .#.....#. .#######. .........'),
   play:px('.#....... .###..... .#####... .#######. .#####... .###..... .#....... ......... .........'),
   stop:px('......... .#######. .#######. .#######. .#######. .#######. .#######. .#######. .........'),
+  sun:px('....#.... .#.....#. ...###... ..#####.. #.#####.# ..#####.. ...###... .#.....#. ....#....'),
+  moon:px('...###... ..##..... .##...... .##...... .##...... .##.....# ..##...#. ...####.. .........'),
 };
 
 /* ================= palettes ================= */
@@ -102,22 +104,22 @@ const TOOLDEFS=[
 const toolDef=id=>TOOLDEFS.find(t=>t.id===id);
 
 function mkLayer(id,name){ return {id,name,visible:true,opacity:1,locked:false,alphaLock:false,outline:0}; }
-function makeDoc(w,hgt,pal,name){ return {name:name||'새 작품',w,h:hgt,palette:pal.slice(0,MAXPAL),layers:[mkLayer(1,'레이어 1')],frames:[{dur:120,cels:{1:new Uint8Array(w*hgt)}}],tags:[]}; }
+function makeDoc(w,hgt,pal,name){ return {name:name||L('새 작품'),w,h:hgt,palette:pal.slice(0,MAXPAL),layers:[mkLayer(1,L('레이어 1'))],frames:[{dur:120,cels:{1:new Uint8Array(w*hgt)}}],tags:[]}; }
 function recalcIds(){ nextId=doc.layers.reduce((m,L)=>Math.max(m,L.id),0)+1; }
 function updPal(){ palRGB=doc.palette.map(hex2rgb); }
 const activeLayer=()=>doc.layers[ui.layer];
 function cel(f=ui.frame,id){ const L=id==null?activeLayer():null; return doc.frames[f].cels[id==null?L.id:id]; }
 
 function sampleDoc(){
-  const d=makeDoc(16,16,PRESETS['PICO-8 (16색)'],'물약 (예시)');
-  d.layers=[mkLayer(1,'예시 · 병'),mkLayer(2,'예시 · 거품')];
+  const d=makeDoc(16,16,PRESETS['PICO-8 (16색)'],L('물약 (예시)'));
+  d.layers=[mkLayer(1,L('예시 · 병')),mkLayer(2,L('예시 · 거품'))];
   const bottle=['................','......kkkk......','.....kCCcck.....','......kkkk......','......kbbk......','......kbbk......','.....kbbbbk.....','....kbrrrrbk....','...kbrrrrrrbk...','...kbrrrrrrbk...','...kbrrrrrdbk...','...kbrrrrrdbk...','....kbrrrdbk....','.....kbbbbk.....','......kkkk......','................'];
   const map={k:1,C:16,c:5,b:7,r:9,d:3,w:8};
   const a=new Uint8Array(256); bottle.forEach((row,y)=>{ for(let x=0;x<16;x++){ const v=map[row[x]]; if(v) a[y*16+x]=v; } });
   const bub=(pts)=>{ const u=new Uint8Array(256); for(const [x,y] of pts) u[y*16+x]=8; return u; };
   // the bottle cel is linked across both frames; only the bubbles change
   d.frames=[{dur:320,cels:{1:a,2:bub([[6,8],[6,9],[8,7],[9,10]])}},{dur:320,cels:{1:a,2:bub([[6,9],[6,10],[7,5],[8,8]])}}];
-  d.tags=[{name:'보글보글',from:0,to:1,dir:'forward',color:'#3549d6'}];
+  d.tags=[{name:L('보글보글'),from:0,to:1,dir:'forward',color:'#3549d6'}];
   return d;
 }
 
@@ -477,7 +479,7 @@ function moveGesture(){
 }
 
 /* ================= layers ================= */
-function addLayer(){ docChange(()=>{ const id=nextId++; const at=ui.layer+1; doc.layers.splice(at,0,mkLayer(id,'레이어 '+id)); for(const f of doc.frames) f.cels[id]=new Uint8Array(doc.w*doc.h); ui.layer=at; }); }
+function addLayer(){ docChange(()=>{ const id=nextId++; const at=ui.layer+1; doc.layers.splice(at,0,mkLayer(id,L('레이어 '+id))); for(const f of doc.frames) f.cels[id]=new Uint8Array(doc.w*doc.h); ui.layer=at; }); }
 function dupLayer(){ docChange(()=>{ const s=activeLayer(); const id=nextId++; const L={...s,id,name:s.name+' 복사'}; const at=ui.layer+1; doc.layers.splice(at,0,L); const copies=new Map(); for(const f of doc.frames){ const src=f.cels[s.id]; if(!copies.has(src)) copies.set(src,src.slice()); f.cels[id]=copies.get(src); } ui.layer=at; }); }
 function delLayer(){ if(doc.layers.length<2){ toast('레이어가 하나뿐이라 삭제할 수 없습니다'); return; } docChange(()=>{ const L=activeLayer(); doc.layers.splice(ui.layer,1); for(const f of doc.frames) delete f.cels[L.id]; ui.layer=clamp(ui.layer-1,0,doc.layers.length-1); }); }
 function moveLayer(dir){ const j=ui.layer+dir; if(j<0||j>=doc.layers.length) return; docChange(()=>{ const a=doc.layers; [a[ui.layer],a[j]]=[a[j],a[ui.layer]]; ui.layer=j; }); }
@@ -577,7 +579,7 @@ function deserialize(o){
   const w=o.w|0, H=o.h|0; if(w<1||H<1||w>MAXSIZE||H>MAXSIZE) throw new Error('캔버스 크기가 올바르지 않습니다');
   const palette=(o.palette||[]).filter(isHex).map(normHex).slice(0,MAXPAL); if(!palette.length) palette.push('#000000','#ffffff');
   const layers=(o.layers||[]).map((L,i)=>({id:(L.id|0)||i+1,name:String(L.name||'레이어'),visible:L.visible!==false,opacity:clamp(+L.opacity||1,0,1),locked:!!L.locked,alphaLock:!!L.alphaLock,outline:clamp(L.outline|0,0,palette.length)}));
-  if(!layers.length) layers.push(mkLayer(1,'레이어 1'));
+  if(!layers.length) layers.push(mkLayer(1,L('레이어 1')));
   const frames=[];
   (o.frames||[]).forEach((f,fi)=>{ const cels={};
     for(const L of layers){ const v=f.cels&&f.cels[L.id]; let c;

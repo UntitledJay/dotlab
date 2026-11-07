@@ -87,6 +87,13 @@ addEventListener('message',e=>{ const m=e.data&&e.data.pluginMessage; if(!m) ret
     await fr.evaluate(() => libSave(false));
     const lib = await page.evaluate(() => { const m = msgs.filter(x => x.type === 'library').pop(); return m && JSON.parse(m.data).map(e => e.name); });
     assert.deepEqual(lib, ['버튼']);
+    // language and theme also go to figma.clientStorage, and come back with init
+    assert.equal(await fr.evaluate(() => document.documentElement.dataset.theme), 'light', 'light by default inside Figma too');
+    await fr.evaluate(() => { setLang('en'); setTheme('dark'); });
+    const pref = await page.evaluate(() => JSON.parse(msgs.filter(x => x.type === 'prefs').pop().data));
+    assert.equal(pref.lang, 'en'); assert.equal(pref.theme, 'dark');
+    assert.equal(await fr.evaluate(() => $('#bFgInsert').textContent), 'Insert into Figma');
+    assert.deepEqual(await fr.evaluate(p => { FG.init.prefs = p; return prefLoad(); }, JSON.stringify(pref)), pref);
     assert.deepEqual(errs, []);
   } finally { await browser.close(); }
 });

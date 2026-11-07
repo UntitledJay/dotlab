@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
-const EDITOR = ['core.js', 'ui.js', 'aseprite.js', 'timelapse.js', 'conv.js', 'recolor.js', 'comp.js', 'ai.js'];
+const EDITOR = ['core.js', 'i18n.js', 'palettes.js', 'ui.js', 'aseprite.js', 'timelapse.js', 'conv.js', 'recolor.js', 'comp.js', 'ai.js'];
 
 function editorJs(extra = []) {
   return [...EDITOR.map(f => read('src/editor/' + f)), ...extra.map(f => read(f)), read('src/editor/init.js')].join('');
@@ -55,11 +55,7 @@ export function buildFigma() {
   // no external fonts inside the plugin window; the system font stacks take over
   s = s.replace(/<link rel="preconnect"[^>]*>\n/, '').replace(/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^>]*>\n/, '');
   s = replaceOnce(s, '<title>도트랩 에디터</title>', '<title>도트랩</title>', 'title');
-  // Figma theme classes (themeColors: true puts figma-dark / figma-light on <html>)
-  const light = s.match(/:root\{\n([\s\S]*?)\n  --f-ui/)[1];
-  const dark = s.match(/:root\[data-theme="dark"\]\{\n([\s\S]*?)color-scheme:dark \}/)[1];
-  const theme = `html.figma-light:root{\n${light}\n  color-scheme:light }\nhtml.figma-dark:root{\n${dark}color-scheme:dark }\n`;
-  s = replaceOnce(s, '\nhtml,body{height:100%}', '\n' + theme + 'html,body{height:100%}', 'theme');
+  // theme: light by default like the web build, whatever Figma's theme is; the top-bar button switches (data-theme)
   s = replaceOnce(s, 'padding-inline:16px;padding-block:12px;', 'padding-inline:8px;padding-block:8px;', 'padding');
   s = replaceOnce(s, '\n@media (max-width:980px){', '\n' + read('src/platform/figma.css') + '@media (max-width:980px){', 'css');
   // top bar: Figma actions

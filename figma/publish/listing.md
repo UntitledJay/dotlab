@@ -28,6 +28,7 @@ DotLab is a real pixel-art editor inside Figma. Draw pixel by pixel, animate, tu
 EDITOR
 • Pixel-perfect pencil, eraser, fill, shapes, selection, mirror and tile modes, dithering
 • Indexed palette (up to 62 colours) with presets, ramps and palette import
+• Palette shelf: see the open palette, your saved palettes and presets side by side and pick colours from any of them
 • Layers (alpha lock, opacity, outline effect), frames, onion skin, frame tags, linked cels
 • Open and save .aseprite files; export PNG, GIF, sprite sheet + JSON, timelapse GIF
 
@@ -51,7 +52,7 @@ AI (OPTIONAL)
 • Generate sprites from a sentence, redraw a selected area, create palettes from a theme
 • Uses your own Anthropic API key (Claude). Without a key, every other feature works.
 
-The interface is in Korean.
+The interface is available in English and Korean (switch in the top bar). Light theme by default, with a dark theme toggle.
 ```
 
 한국어 설명:
@@ -63,6 +64,7 @@ The interface is in Korean.
 • 픽셀 UI 컴포넌트: 버튼·패널·입력칸·체크박스·토글·진행 바·탭·말풍선 템플릿, 크기·모서리·테두리·입체감 조절, 모서리 잠금(안쪽만 그리기), 9-slice, 내 컴포넌트 라이브러리, PNG + 9-slice JSON + CSS 내보내기, Figma에 상태별 변형(Variant)으로 넣기
 • 이미지 → 도트: 확대·압축된 도트 이미지에서 원래 픽셀 격자를 찾아 복원, 배경 제거, 색 정리
 • Figma 연결: 벡터·PNG로 넣기, 다시 열어 제자리 교체, 팔레트를 색 스타일로 저장
+• 화면: 한국어 / English 전환, 기본 라이트 모드와 다크 모드 버튼, 여러 팔레트를 나란히 보는 팔레트 모음
 • AI(선택): 문장으로 도트 생성, 선택 영역 다시 그리기, 주제로 팔레트 만들기. 본인의 Anthropic API 키를 씁니다. 키가 없어도 다른 기능은 모두 씁니다.
 ```
 
@@ -106,12 +108,12 @@ https://github.com/UntitledJay/dotlab/issues
   - 이미지 파일, Figma 문서의 다른 내용, 사용자 정보는 보내지 않습니다.
   - Anthropic의 데이터 처리는 사용자 본인의 Anthropic 계정 약관을 따릅니다.
 - **API 키**: 사용자가 입력하면 `figma.clientStorage`(그 컴퓨터의 Figma 플러그인 저장소)에만 저장됩니다. Anthropic API 호출 헤더에만 쓰이고 다른 곳으로 보내지 않습니다. 키 삭제 버튼이 있습니다.
-- **기기에 저장하는 데이터**: `figma.clientStorage`에 자동 저장본, 내 컴포넌트 라이브러리, API 키를 저장합니다.
+- **기기에 저장하는 데이터**: `figma.clientStorage`에 자동 저장본, 내 컴포넌트 라이브러리, API 키, 화면 설정(언어·테마·저장한 팔레트)을 저장합니다.
 - **문서에 저장하는 데이터**: 넣은 개체의 `pluginData`에 도트랩 프로젝트(레이어·프레임·팔레트)를 저장합니다. 다시 열어 고치기에 씁니다.
 - **네트워크**: 모든 요청은 HTTPS이고, `manifest.json`의 `allowedDomains`로 `https://api.anthropic.com` 하나만 허용합니다.
 
 ## 심사 전에 알아 둘 점
 
-- **화면 언어**: 화면이 한국어로만 되어 있습니다. 설명에 적어 두었지만, 세계 사용자를 노린다면 영어 화면을 추가하는 것을 고려하세요.
+- **화면 언어**: 상단의 KO / EN으로 한국어와 영어를 바꿉니다(선택은 `figma.clientStorage`에 저장). 심사자가 영어로 보도록 게시 이미지와 설명은 영어를 먼저 둡니다.
 - **API 키 직접 입력**: 사용자가 자기 키를 넣는 방식은 키가 사용자 브라우저에서 바로 Anthropic으로 갑니다. 많은 사용자에게 키 없이 AI를 제공하려면 키를 보관하는 중계 서버가 필요합니다. 그때는 `allowedDomains`를 그 서버 주소로 바꿉니다.
 - **유료 기능 없음**: 플러그인 자체에는 결제가 없습니다.

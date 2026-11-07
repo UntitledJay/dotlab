@@ -2,7 +2,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Silkscreen&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: one soft frame holding floating panels — tool rail | stage with tool options, status and timeline | inspector (AI on top, layers + palette below).
+/* Light theme by default (whatever the system setting); :root[data-theme="dark"] is the dark theme the top-bar button switches to.
+   Layout: one soft frame holding floating panels — tool rail | stage with tool options, status and timeline | inspector (AI on top, layers + palette below).
    Style: neutral greys, white panels with large radii and soft shadows, segmented controls (white thumb on a grey track), raised buttons. */
 :root{
   --bg:#e8e8eb; --frame:#f6f6f7; --panel:#ffffff; --panel-2:#f2f2f4; --hover:#ebebee; --line:#e6e6ea; --fg:#18181c; --muted:#85858f;
@@ -13,12 +14,6 @@
   --f-pixel:"Silkscreen","JetBrains Mono",ui-monospace,monospace;
   --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
-  --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
-  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --guide-2:#5cc4ff; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
-  --stage:#0f0f12; --check-a:#26262b; --check-b:#1f1f24; --grid:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17); --ants:#ffffff; --frame-edge:rgba(255,255,255,.22);
-  color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
   --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
@@ -35,13 +30,13 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--acce
 .checker{background-color:var(--check-a);background-image:conic-gradient(var(--check-b) 25%,transparent 0 50%,var(--check-b) 0 75%,transparent 0);background-size:8px 8px}
 
 #app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;min-width:0;background:var(--frame);border-radius:26px;padding:10px;box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(16,16,24,.04)}
-.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:var(--panel);border-radius:16px;padding:7px 8px 7px 14px;box-shadow:var(--shadow)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 7px;background:var(--panel);border-radius:16px;padding:7px 8px 7px 14px;box-shadow:var(--shadow)}
 .brand{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;min-width:0}
 .logo{font-family:var(--f-pixel);font-size:15px;letter-spacing:.08em;color:var(--fg);white-space:nowrap}
-.name{width:150px;max-width:40vw;background:transparent;border:1px solid transparent;border-radius:9px;padding:4px 8px;font-weight:500}
+.name{width:112px;max-width:40vw;background:transparent;border:1px solid transparent;border-radius:9px;padding:4px 8px;font-weight:500}
 .name:hover,.name:focus{background:var(--panel-2)}
 .group{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.group+.group{padding-left:10px;border-left:1px solid var(--line)}
+.group+.group{padding-left:8px;border-left:1px solid var(--line)}
 .track{background:var(--panel-2);border-radius:11px;padding:3px;gap:2px}
 .spacer{flex:1}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel-2);border:0;border-radius:10px;padding:4px 12px;cursor:pointer;white-space:nowrap;min-height:30px;font-weight:500;transition:background .12s,box-shadow .12s}
@@ -188,6 +183,19 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
 @media (prefers-reduced-motion:reduce){.cand.pending canvas{animation:none}*{transition:none!important}}
 .palout{display:flex;flex-direction:column;gap:6px}
 .swrow{display:flex;flex-wrap:wrap;gap:3px}
+.bhead .chip.sm{min-height:24px;padding:1px 9px;font-size:11.5px;margin-left:8px;border-radius:8px;background:var(--panel-2)}
+.bhead .chip.sm[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.shelf{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.shelfrow{display:flex;flex-direction:column;gap:5px;padding:8px;border-radius:12px;background:var(--panel-2)}
+.shelfrow.cur{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.shelfhead{display:flex;align-items:center;gap:6px;min-width:0}
+.shelfhead b{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shelfhead .count{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.shelfsw{display:flex;flex-wrap:wrap;gap:3px}
+.shelfsw button{width:18px;height:18px;border:0;padding:0;border-radius:5px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(16,16,24,.1)}
+.shelfsw button:hover{transform:scale(1.15)}
+.shelfsw button.in{box-shadow:inset 0 0 0 1px rgba(16,16,24,.1),0 0 0 1.5px var(--panel),0 0 0 2.5px var(--muted)}
+.shelfsec{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-top:2px}
 .swrow i{width:18px;height:18px;border-radius:5px;display:block}
 .dropzone{border:1.5px dashed var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:12px;background:var(--panel-2)}
 .dropzone.over{border-color:var(--fg);background:var(--hover)}
@@ -298,7 +306,11 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
       <button class="chip" id="tMirY" aria-pressed="false">상하 대칭</button>
     </div>
     <span class="spacer"></span>
-    <button class="btn ghost" id="bHelp">단축키</button>
+    <div class="group">
+      <div class="group track" id="langSwitch" role="group" aria-label="언어 / Language" data-i18n="off"><button class="chip" data-lang="ko" aria-pressed="true" title="한국어">KO</button><button class="chip" data-lang="en" aria-pressed="false" title="English">EN</button></div>
+      <button class="btn ic" id="bTheme" title="다크 모드로 바꾸기" aria-label="다크 모드로 바꾸기"></button>
+      <button class="btn ic" id="bHelp" title="단축키" aria-label="단축키">?</button>
+    </div>
   </header>
 
   <div class="main">
@@ -449,7 +461,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
           <div class="lprops" id="layerProps"></div>
         </section>
         <section class="block">
-          <div class="bhead"><h2>팔레트</h2><span class="count" id="palCount"></span></div>
+          <div class="bhead"><h2>팔레트</h2><span class="count" id="palCount"></span><button class="chip sm" id="pShelf" aria-pressed="false" title="여러 팔레트를 한눈에 보고 색을 가져옵니다">팔레트 모음</button></div>
           <div class="pal" id="palGrid"></div>
           <p class="hint">클릭: 주 색상 · 오른쪽 클릭: 보조 색상 · 더블클릭: 색 편집</p>
           <div class="btnrow">
@@ -461,6 +473,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
             <button class="btn sm" id="pImport">가져오기</button>
             <button class="btn sm" id="pExport">내보내기</button>
           </div>
+          <div class="shelf" id="palShelf" hidden></div>
         </section>
       </div>
     </aside>

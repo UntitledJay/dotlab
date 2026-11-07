@@ -70,6 +70,8 @@ const COMPKINDS={
     for(let k=0;k<4;k++){ const y=bh-b+k; for(let x=4;x<=7-k;x++) if(y<H) c[y*W+x]=(x<4+b||x>7-k-b||k===3)?R.ink:R.white; } }},
 };
 const COMPCSS={'호버':':hover','누름':':active','비활성':':disabled','포커스':':focus-visible','켜짐':'[aria-checked="true"]','선택':'[aria-selected="true"]'};
+// the same states named in English (case does not matter)
+Object.assign(COMPCSS,{hover:':hover',pressed:':active',active:':active',disabled:':disabled',focus:':focus-visible',on:'[aria-checked="true"]',checked:'[aria-checked="true"]',selected:'[aria-selected="true"]'});
 
 function compOpts(kind,o){ const K=COMPKINDS[kind]; o=o||{};
   const pick=(k,lo,hi,def)=>clamp(Number.isFinite(+o[k])?Math.round(+o[k]):def,lo,hi);
@@ -210,7 +212,7 @@ function renderComp(){
   const list=libLoad(), C=doc.comp, cur=C&&C.libId&&list.some(e=>e.id===C.libId);
   const libFile=h('input',{type:'file',accept:'.json',class:'vh','aria-label':'라이브러리 파일'}); libFile.addEventListener('change',async()=>{ const f=libFile.files[0]; libFile.value=''; if(!f) return; try{ libImport(JSON.parse(await readText(f))); }catch(err){ toast('라이브러리 파일을 읽지 못했습니다'); } });
   const libList=h('div',{class:'liblist'},list.length?list.map(e=>h('div',{class:'libitem'+(C&&C.libId===e.id?' on':'')},
-      h('button',{class:'libopen',title:`「${e.name}」 열기`,onclick:()=>libOpen(e.id)},libThumb(e),h('span',{class:'ln',text:e.name}),h('span',{class:'lm',text:`${e.w}×${e.h} · ${e.states}상태`})),
+      h('button',{class:'libopen',title:`「${e.name}」 열기`,onclick:()=>libOpen(e.id)},libThumb(e),h('span',{class:'ln','data-i18n':'off',text:e.name}),h('span',{class:'lm',text:`${e.w}×${e.h} · ${e.states}상태`})),
       h('button',{class:'mini',title:'삭제','aria-label':`「${e.name}」 삭제`,html:ICON.trash,onclick:()=>libDelete(e.id)}))):h('p',{class:'hint empty',text:'아직 저장한 컴포넌트가 없습니다. 다듬은 컴포넌트를 저장해 두면 여기서 다시 열 수 있습니다.'}));
   box.append(sec('내 컴포넌트',
     h('div',{class:'actions'},
@@ -320,7 +322,7 @@ async function exportComponent(s){
   const C=doc.comp; if(!C){ toast('먼저 컴포넌트 모드에서 템플릿을 고르거나 지금 그림을 컴포넌트로 바꾸세요'); return; }
   const cls='px-'+(C.kind&&C.kind!=='custom'?C.kind:'component'); const safe=t=>String(t).replace(/[\\/:*?"<>|\s]+/g,'-');
   const files=[], states=[];
-  for(let fi=0;fi<doc.frames.length;fi++){ const fn=`${base()}-${safe(stateName(fi))}@${s}x.png`; files.push({filename:fn,data:await toBlob(scaledFrame(fi,s))}); states.push({name:stateName(fi),file:fn,selector:COMPCSS[stateName(fi)]||null}); }
+  for(let fi=0;fi<doc.frames.length;fi++){ const fn=`${base()}-${safe(stateName(fi))}@${s}x.png`; files.push({filename:fn,data:await toBlob(scaledFrame(fi,s))}); states.push({name:stateName(fi),file:fn,selector:(COMPCSS[stateName(fi)]||COMPCSS[stateName(fi).toLowerCase()]||null)}); }
   const sl=C.slice, p=compPad(), tile=C.fill==='tile';
   files.push({filename:`${base()}.ui.json`,data:JSON.stringify({app:'DotLab',type:'ui-component',name:doc.name,kind:C.kind,size:{w:doc.w,h:doc.h},scale:s,
     slice:sl?{left:sl.l,top:sl.t,right:sl.r,bottom:sl.b}:null,sliceScaled:sl?{left:sl.l*s,top:sl.t*s,right:sl.r*s,bottom:sl.b*s}:null,fill:sl?(tile?'tile':'stretch'):null,
