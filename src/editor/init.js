@@ -24,6 +24,7 @@ function init(){
 
   $('#lAdd').onclick=addLayer; $('#lDup').onclick=dupLayer; $('#lDel').onclick=delLayer; $('#lUp').onclick=()=>moveLayer(1); $('#lDown').onclick=()=>moveLayer(-1); $('#lMerge').onclick=mergeDown;
   $('#bPlay').onclick=()=>ui.playing?stopPlay():play(); $('#frAdd').onclick=()=>addFrame(false); $('#frDup').onclick=()=>addFrame(true); $('#frDel').onclick=delFrame; $('#frL').onclick=()=>moveFrame(-1); $('#frR').onclick=()=>moveFrame(1);
+  $('#frLink').onclick=addLinkedFrame; $('#frUnlink').onclick=unlinkCel; $('#frTag').onclick=tagButton;
   $('#frDur').addEventListener('change',e=>{ doc.frames[ui.frame].dur=clamp(e.target.value|0,20,5000); renderTimeline(); scheduleSave(); });
 
   $('#pAdd').onclick=()=>editColor(0,true); $('#pEdit').onclick=()=>editColor(ui.primary); $('#pDel').onclick=()=>deleteColor(ui.primary);
@@ -53,7 +54,8 @@ function init(){
   $('#refOp').addEventListener('input',e=>{ ref.opacity=e.target.value/100; requestDraw(); });
   $('#refVis').addEventListener('change',e=>{ ref.visible=e.target.checked; requestDraw(); });
   $('#refAbove').addEventListener('change',e=>{ ref.above=e.target.checked; requestDraw(); });
-  $('#refDel').onclick=()=>{ ref.img=null; $('#refDel').disabled=true; requestDraw(); };
+  $('#refDel').onclick=()=>{ ref.img=null; $('#refDel').disabled=true; $('#refColor').disabled=true; requestDraw(); };
+  $('#refColor').onclick=colorTransferDialog;
 
   const dh=$('#dropHint');
   stage.addEventListener('dragover',e=>{ e.preventDefault(); dh.hidden=false; });
@@ -91,7 +93,7 @@ function init(){
   window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; if(!drag) view.style.cursor=ui.tool==='hand'?'grab':'crosshair'; } });
   window.addEventListener('blur',()=>{ spaceDown=false; });
 
-  renderPlayBtn(); setTool('pencil'); refreshAll();
+  renderPlayBtn(); setTool('pencil'); refreshAll(); tlRecord();   // timelapse starts from the opened picture
   new ResizeObserver(resizeView).observe(stage); resizeView();
   initCapabilities();
 }

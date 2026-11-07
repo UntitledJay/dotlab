@@ -28,7 +28,7 @@ function renderLayers(){
     name.addEventListener('dblclick',e=>{ e.stopPropagation(); const inp=h('input',{value:L.name,'aria-label':'레이어 이름'}); name.textContent=''; name.append(inp); inp.focus(); inp.select();
       const done=()=>{ const v=inp.value.trim(); if(v) L.name=v.slice(0,40); renderLayers(); scheduleSave(); };
       inp.addEventListener('blur',done); inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){ inp.value=L.name; inp.blur(); } }); });
-    const row=h('div',{class:'lrow'+(k===ui.layer?' on':''),onclick:()=>{ ui.layer=k; renderLayers(); }},
+    const row=h('div',{class:'lrow'+(k===ui.layer?' on':''),onclick:()=>{ ui.layer=k; renderLayers(); renderTimeline(); }},
       h('button',{class:'mini'+(L.visible?'':' off'),title:L.visible?'숨기기':'보이기','aria-label':L.visible?'레이어 숨기기':'레이어 보이기',html:ICON.eye,onclick:e=>{ e.stopPropagation(); L.visible=!L.visible; changed(); renderLayers(); scheduleSave(); }}),
       cv, name,
       L.alphaLock?h('span',{class:'badge',title:'알파 잠금',text:'α'}):null,
@@ -53,8 +53,11 @@ function renderTimeline(){
     list.append(h('button',{class:'fcell'+(i===ui.frame?' on':''),title:`프레임 ${i+1} · ${f.dur}ms`,onclick:()=>gotoFrame(i)},cv,h('span',{class:'fn',text:String(i+1)}))); });
   $('#frDur').value=doc.frames[ui.frame].dur;
   const total=doc.frames.reduce((s,f)=>s+f.dur,0);
-  $('#frInfo').textContent=`${ui.frame+1} / ${doc.frames.length} 프레임 · 전체 ${(total/1000).toFixed(2)}초`;
-  markPlaying(); updateThumbs();
+  const t=tagAt(ui.frame);
+  $('#frInfo').textContent=`${ui.frame+1} / ${doc.frames.length} 프레임 · 전체 ${(total/1000).toFixed(2)}초`+(t?` · 태그 「${t.name}」`:'');
+  $('#frTag').textContent=t?'태그 편집':'태그';
+  $('#frUnlink').disabled=!isLinked(ui.frame,activeLayer().id);
+  decorateTimeline(list); markPlaying(); updateThumbs();
 }
 function chip(label,on,onclick,title){ return h('button',{class:'chip','aria-pressed':String(!!on),onclick,title}); }
 function renderToolOpts(){
@@ -181,7 +184,7 @@ async function exportSheet(s){
   const n=doc.frames.length, fw=doc.w*s, fh=doc.h*s; const cols=Math.min(n,Math.max(1,Math.floor(4096/fw))); const rows=Math.ceil(n/cols);
   const cv=document.createElement('canvas'); cv.width=fw*cols; cv.height=fh*rows; const c=cv.getContext('2d'); c.imageSmoothingEnabled=false;
   const frames=doc.frames.map((f,i)=>{ const x=(i%cols)*fw, y=Math.floor(i/cols)*fh; c.drawImage(frameCanvas(i),x,y,fw,fh); return {filename:`${base()} ${i}`,frame:{x,y,w:fw,h:fh},duration:f.dur}; });
-  const json=JSON.stringify({frames,meta:{app:'DotLab',version:'1',image:`${base()}-sheet@${s}x.png`,format:'RGBA8888',size:{w:cv.width,h:cv.height},scale:String(s),frameTags:[],layers:doc.layers.map(L=>({name:L.name,opacity:Math.round(L.opacity*255)}))}},null,1);
+  const json=JSON.stringify({frames,meta:{app:'DotLab',version:'1',image:`${base()}-sheet@${s}x.png`,format:'RGBA8888',size:{w:cv.width,h:cv.height},scale:String(s),frameTags:(doc.tags||[]).map(t=>({name:t.name,from:t.from,to:t.to,direction:t.dir,color:t.color})),layers:doc.layers.map(L=>({name:L.name,opacity:Math.round(L.opacity*255)}))}},null,1);
   offerFiles([{filename:`${base()}-sheet@${s}x.png`,data:await toBlob(cv)},{filename:`${base()}-sheet@${s}x.json`,data:json}]);
 }
 function lzw(idx,minCode){
@@ -226,6 +229,7 @@ function exportDialog(){
   const maxS=Math.max(1,Math.floor(2048/Math.max(doc.w,doc.h)));
   const sc=h('select',{'aria-label':'배율'},[1,2,4,8,16,32].filter(s=>s<=Math.max(1,maxS)||s===1).map(s=>h('option',{value:s,text:`${s}× (${doc.w*s}×${doc.h*s})`,selected:s===Math.min(8,maxS)})));
   const anim=doc.frames.length>1;
+  const tlSpeed=h('select',{'aria-label':'타임랩스 단계당 시간'},[[50,'빠르게 (단계당 0.05초)'],[100,'보통 (0.1초)'],[200,'느리게 (0.2초)']].map(([v,t])=>h('option',{value:v,text:t,selected:v===100})));
   const opt=(v,t,d,c)=>h('label',{class:'opt'},h('input',{type:'radio',name:'ex',value:v,checked:!!c}),h('div',null,h('b',{text:t}),h('span',{text:d})));
   modal({title:'내보내기',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},
       h('div',{class:'optlist'},
@@ -233,10 +237,14 @@ function exportDialog(){
         opt('gif','GIF 애니메이션',`프레임 ${doc.frames.length}개와 프레임별 지속시간을 담아 반복 재생합니다.`,anim),
         opt('sheet','스프라이트 시트 + JSON','모든 프레임을 한 장에 배치하고, 게임 엔진에서 읽는 프레임 좌표 JSON을 함께 저장합니다.'),
         opt('project','프로젝트 파일 (.dotlab.json)','레이어·프레임·팔레트를 그대로 보존합니다. 열기로 다시 불러올 수 있습니다.'),
+        opt('aseprite','Aseprite 파일 (.aseprite)','레이어·프레임·지속시간·태그·링크 셀·팔레트를 Aseprite에서 그대로 열 수 있게 저장합니다. 외곽선 효과와 알파 잠금은 Aseprite에 없어 빠집니다.'),
+        opt('timelapse','타임랩스 GIF',TL.steps.length>1?`이 창을 연 뒤 편집한 과정 ${TL.steps.length}단계를 GIF로 저장합니다. AI가 만든 단계에는 왼쪽 위에 AI 표시가 붙습니다.`:'아직 기록된 작업 단계가 없습니다. 그리거나 고친 과정이 단계마다 기록됩니다.'),
         opt('palette','팔레트 (.txt)','한 줄에 색 하나씩 적은 hex 목록입니다.')),
-      h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc)),
+      h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc),
+      h('label',{class:'row2',style:'color:var(--muted)'},'타임랩스 속도 ',tlSpeed)),
     actions:[{label:'취소'},{label:'내보내기',primary:true,onClick:()=>{ const v=$('input[name=ex]:checked').value, s=+sc.value;
-      if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s); else if(v==='sheet') exportSheet(s); else if(v==='project') saveProject(); else exportPalette(); }}]});
+      if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s); else if(v==='sheet') exportSheet(s); else if(v==='project') saveProject();
+      else if(v==='aseprite') exportAseprite(); else if(v==='timelapse') exportTimelapse(s,+tlSpeed.value); else exportPalette(); }}]});
 }
 function readText(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(r.error); r.readAsText(f); }); }
 function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(f); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('이미지를 읽을 수 없습니다')); im.src=url; }); }
@@ -246,9 +254,9 @@ async function handleFile(f){
     if(n.endsWith('.json')){ const nd=deserialize(JSON.parse(await readText(f))); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
     else if(/\.(hex|gpl|txt)$/.test(n)){ const cols=parsePaletteText(await readText(f)); if(!cols.length) throw new Error('파일에서 색을 찾지 못했습니다'); presetDialog(cols,`팔레트 가져오기 (${cols.length}색)`); }
     else if(f.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)){ showTab('pConv'); await setConvImage(f); }
-    else if(n.endsWith('.aseprite')||n.endsWith('.ase')) toast('Aseprite 파일은 아직 열 수 없습니다. Aseprite에서 PNG나 스프라이트 시트로 내보낸 뒤 열어 주세요.');
+    else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await readAseprite(await f.arrayBuffer(),f.name.replace(/\.(aseprite|ase)$/i,'')); replaceDoc(r.doc); toast(['Aseprite 파일을 열었습니다: '+r.doc.name,...r.notes].join(' · ')); }
     else toast('열 수 없는 파일 형식입니다');
   }catch(e){ toast(e.message||'파일을 열지 못했습니다'); }
 }
 
-async function setRefImage(src){ ref.img=src instanceof HTMLImageElement?src:await loadImageFile(src); ref.visible=true; $('#refVis').checked=true; $('#refDel').disabled=false; requestDraw(); }
+async function setRefImage(src){ ref.img=src instanceof HTMLImageElement?src:await loadImageFile(src); ref.visible=true; $('#refVis').checked=true; $('#refDel').disabled=false; $('#refColor').disabled=false; requestDraw(); }

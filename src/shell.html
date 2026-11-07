@@ -85,6 +85,18 @@ button,input,select,textarea{font:inherit;color:inherit}
 .fcell.play{outline:2px solid var(--pop)}
 .fcell .fn{font-family:var(--f-pixel);font-size:10px;color:var(--muted)}
 .fcell canvas{width:36px;height:36px}
+.fcell{position:relative}
+.fcell .lk{position:absolute;top:1px;right:1px;color:var(--accent);line-height:0}
+.fcell .lk svg{width:11px;height:11px}
+.frames{position:relative}
+.frames.hastags{padding-top:20px}
+.tagbar{position:absolute;top:0;height:16px;border:0;border-radius:3px;background:var(--tag);color:#fff;font-size:11px;line-height:16px;padding:0 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.tagcols{gap:6px}
+.tagsw{width:22px;height:22px;border-radius:5px;border:2px solid transparent;cursor:pointer}
+.tagsw[aria-pressed="true"]{border-color:var(--fg)}
+.ctprev{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.ctprev figure{margin:0;display:flex;flex-direction:column;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
+.ctprev canvas{width:120px;height:120px;image-rendering:pixelated;object-fit:contain;border:1px solid var(--line);border-radius:5px}
 canvas.thumb,.fcell canvas,.cand canvas,.convgrid canvas{image-rendering:pixelated;object-fit:contain}
 
 .side{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
@@ -242,6 +254,9 @@ textarea{resize:vertical;width:100%}
           <span class="vsep"></span>
           <button class="btn sm" id="frAdd">빈 프레임</button>
           <button class="btn sm" id="frDup">복제</button>
+          <button class="btn sm" id="frLink" title="그림을 공유하는 프레임을 뒤에 만듭니다. 한쪽을 고치면 다른 쪽도 바뀝니다.">링크 복제</button>
+          <button class="btn sm" id="frUnlink" title="현재 레이어의 이 프레임만 링크를 풀어 따로 고칩니다">링크 해제</button>
+          <button class="btn sm" id="frTag" title="프레임 구간에 이름을 붙입니다 (걷기, 공격 등)">태그</button>
           <button class="btn sm" id="frDel">삭제</button>
           <button class="btn sm" id="frL" title="앞으로 이동" aria-label="프레임 앞으로">←</button>
           <button class="btn sm" id="frR" title="뒤로 이동" aria-label="프레임 뒤로">→</button>
@@ -334,7 +349,7 @@ textarea{resize:vertical;width:100%}
             <label class="chk"><input type="checkbox" id="refVis" checked> 보이기</label>
             <label class="chk"><input type="checkbox" id="refAbove"> 그림 위에 표시</label>
           </div>
-          <div class="actions"><button class="btn" id="refDel" disabled>참조 이미지 제거</button></div>
+          <div class="actions"><button class="btn" id="refColor" disabled title="참조 이미지의 색감에 맞춰 팔레트를 다시 칠합니다">색감 옮기기</button><button class="btn" id="refDel" disabled>참조 이미지 제거</button></div>
         </div>
       </div>
 
@@ -372,5 +387,5 @@ textarea{resize:vertical;width:100%}
 
 <div class="modal" id="modal" hidden><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle"><h2 id="mTitle"></h2><div id="mBody"></div><div id="mActions"></div></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<input type="file" id="fileOpen" class="vh" accept=".json,.hex,.gpl,.txt,image/*" tabindex="-1" aria-hidden="true">
+<input type="file" id="fileOpen" class="vh" accept=".json,.aseprite,.ase,.hex,.gpl,.txt,image/*" tabindex="-1" aria-hidden="true">
 <input type="file" id="palFile" class="vh" accept=".hex,.gpl,.txt" tabindex="-1" aria-hidden="true">

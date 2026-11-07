@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
-const EDITOR = ['core.js', 'ui.js', 'conv.js', 'ai.js'];
+const EDITOR = ['core.js', 'ui.js', 'conv.js', 'ai.js', 'anim.js', 'aseprite.js', 'recolor.js'];
 
 function editorJs(extra = []) {
   return [...EDITOR.map(f => read('src/editor/' + f)), ...extra.map(f => read(f)), read('src/editor/init.js')].join('');

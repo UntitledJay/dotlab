@@ -55,8 +55,8 @@ function renderCands(){
   }
 }
 function place(cl,c,overwrite){ for(let y=0;y<c.h;y++) for(let x=0;x<c.w;x++){ const dx=c.x+x, dy=c.y+y; if(dx<0||dy<0||dx>=doc.w||dy>=doc.h) continue; if(c.mask&&!c.mask[y*c.w+x]) continue; let v=c.data[y*c.w+x]; if(v>doc.palette.length) v=0; if(v||overwrite) cl[dy*doc.w+dx]=v; } }
-function candToLayer(c){ docChange(()=>{ const id=nextId++; const at=ui.layer+1; doc.layers.splice(at,0,mkLayer(id,('AI · '+c.label).slice(0,28))); for(const f of doc.frames) f.cels[id]=new Uint8Array(doc.w*doc.h); place(doc.frames[ui.frame].cels[id],c,false); ui.layer=at; }); toast('새 레이어로 넣었습니다. 연필로 바로 다듬을 수 있습니다.'); }
-function candApply(c){ if(!canEdit()) return; beginEdit(); place(cel(),c,true); endEdit(); toast('현재 레이어에 적용했습니다. Ctrl+Z로 되돌릴 수 있습니다.'); }
+function candToLayer(c){ TL.mark='ai'; docChange(()=>{ const id=nextId++; const at=ui.layer+1; doc.layers.splice(at,0,mkLayer(id,('AI · '+c.label).slice(0,28))); for(const f of doc.frames) f.cels[id]=new Uint8Array(doc.w*doc.h); place(doc.frames[ui.frame].cels[id],c,false); ui.layer=at; }); toast('새 레이어로 넣었습니다. 연필로 바로 다듬을 수 있습니다.'); }
+function candApply(c){ if(!canEdit()) return; TL.mark='ai'; beginEdit(); place(cel(),c,true); endEdit(); toast('현재 레이어에 적용했습니다. Ctrl+Z로 되돌릴 수 있습니다.'); }
 async function runAI(prompt,c,tier){
   aiBusy(true); aiCtl=new AbortController(); setAIStatus('생각하는 중… (보통 10~60초)'); c.status='생각하는 중…'; renderCands();
   try{

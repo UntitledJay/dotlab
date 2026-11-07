@@ -8,7 +8,7 @@
     "build": "node scripts/build.mjs",
     "build:web": "node scripts/build.mjs web",
     "build:figma": "node scripts/build.mjs figma",
-    "test": "node scripts/build.mjs && node --test --test-concurrency=1 tests/editor.test.mjs tests/grid-detect.test.mjs tests/figma-main.test.mjs tests/figma-ui.test.mjs",
+    "test": "node scripts/build.mjs && node --test --test-concurrency=1 tests/editor.test.mjs tests/grid-detect.test.mjs tests/figma-main.test.mjs tests/figma-ui.test.mjs tests/v1.test.mjs",
     "serve": "npx --yes http-server dist -p 5173 -c-1"
   },
   "devDependencies": {

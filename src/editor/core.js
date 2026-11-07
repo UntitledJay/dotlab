@@ -102,7 +102,9 @@ const TOOLDEFS=[
 const toolDef=id=>TOOLDEFS.find(t=>t.id===id);
 
 function mkLayer(id,name){ return {id,name,visible:true,opacity:1,locked:false,alphaLock:false,outline:0}; }
-function makeDoc(w,hgt,pal,name){ return {name:name||'새 작품',w,h:hgt,palette:pal.slice(0,MAXPAL),layers:[mkLayer(1,'레이어 1')],frames:[{dur:120,cels:{1:new Uint8Array(w*hgt)}}]}; }
+function makeDoc(w,hgt,pal,name){ return {name:name||'새 작품',w,h:hgt,palette:pal.slice(0,MAXPAL),layers:[mkLayer(1,'레이어 1')],frames:[{dur:120,cels:{1:new Uint8Array(w*hgt)}}],tags:[]}; }
+/* each cel array once, even when frames share it (linked cels) */
+function uniqueCels(){ const s=new Set(); for(const f of doc.frames) for(const id in f.cels) s.add(f.cels[id]); return [...s]; }
 function recalcIds(){ nextId=doc.layers.reduce((m,L)=>Math.max(m,L.id),0)+1; }
 function updPal(){ palRGB=doc.palette.map(hex2rgb); }
 const activeLayer=()=>doc.layers[ui.layer];
@@ -233,7 +235,7 @@ function endEdit(){
   if(c && !eqArr(c,pend.before)){ pend.after=c.slice(); pushHist(pend); }
   pend=null; changed();
 }
-function pushHist(e){ hist.push(e); if(hist.length>150) hist.shift(); redoS.length=0; updHistBtns(); scheduleSave(); }
+function pushHist(e){ hist.push(e); if(hist.length>150) hist.shift(); redoS.length=0; updHistBtns(); scheduleSave(); tlRecord(); }
 function docChange(fn){ const b=snap(); const r=fn(); if(r===false) return false; pushHist({kind:'doc',before:b,after:snap()}); updPal(); recalcIds(); refreshAll(); return true; }
 function applyHist(e,k){
   if(e.kind==='cel'){ const c=doc.frames[e.f]?.cels[e.id]; if(c) c.set(e[k]); ui.frame=Math.min(e.f,doc.frames.length-1); const li=doc.layers.findIndex(L=>L.id===e.id); if(li>=0) ui.layer=li; }
@@ -241,8 +243,8 @@ function applyHist(e,k){
   ui.layer=clamp(ui.layer,0,doc.layers.length-1); ui.frame=clamp(ui.frame,0,doc.frames.length-1);
   if(ui.sel && ui.sel.length!==doc.w*doc.h) setSel(null);
 }
-function undo(){ if(pend||!hist.length) return; stopPlay(); const e=hist.pop(); const sz=doc.w+'x'+doc.h; applyHist(e,'before'); redoS.push(e); refreshAll(); scheduleSave(); if(sz!==doc.w+'x'+doc.h) fitView(); }
-function redo(){ if(pend||!redoS.length) return; stopPlay(); const e=redoS.pop(); const sz=doc.w+'x'+doc.h; applyHist(e,'after'); hist.push(e); refreshAll(); scheduleSave(); if(sz!==doc.w+'x'+doc.h) fitView(); }
+function undo(){ if(pend||!hist.length) return; stopPlay(); const e=hist.pop(); const sz=doc.w+'x'+doc.h; applyHist(e,'before'); redoS.push(e); refreshAll(); scheduleSave(); tlRecord(); if(sz!==doc.w+'x'+doc.h) fitView(); }
+function redo(){ if(pend||!redoS.length) return; stopPlay(); const e=redoS.pop(); const sz=doc.w+'x'+doc.h; applyHist(e,'after'); hist.push(e); refreshAll(); scheduleSave(); tlRecord(); if(sz!==doc.w+'x'+doc.h) fitView(); }
 function updHistBtns(){ $('#bUndo').disabled=!hist.length; $('#bRedo').disabled=!redoS.length; }
 let thumbT=null;
 function changed(){ invalidate(); requestDraw(); clearTimeout(thumbT); thumbT=setTimeout(updateThumbs,120); }
@@ -447,32 +449,38 @@ function moveGesture(){
 
 /* ================= layers ================= */
 function addLayer(){ docChange(()=>{ const id=nextId++; const at=ui.layer+1; doc.layers.splice(at,0,mkLayer(id,'레이어 '+id)); for(const f of doc.frames) f.cels[id]=new Uint8Array(doc.w*doc.h); ui.layer=at; }); }
-function dupLayer(){ docChange(()=>{ const s=activeLayer(); const id=nextId++; const L={...s,id,name:s.name+' 복사'}; const at=ui.layer+1; doc.layers.splice(at,0,L); for(const f of doc.frames) f.cels[id]=f.cels[s.id].slice(); ui.layer=at; }); }
+function dupLayer(){ docChange(()=>{ const s=activeLayer(); const id=nextId++; const L={...s,id,name:s.name+' 복사'}; const at=ui.layer+1; doc.layers.splice(at,0,L); const cp=new Map(); for(const f of doc.frames){ const c=f.cels[s.id]; if(!cp.has(c)) cp.set(c,c.slice()); f.cels[id]=cp.get(c); } ui.layer=at; }); }
 function delLayer(){ if(doc.layers.length<2){ toast('레이어가 하나뿐이라 삭제할 수 없습니다'); return; } docChange(()=>{ const L=activeLayer(); doc.layers.splice(ui.layer,1); for(const f of doc.frames) delete f.cels[L.id]; ui.layer=clamp(ui.layer-1,0,doc.layers.length-1); }); }
 function moveLayer(dir){ const j=ui.layer+dir; if(j<0||j>=doc.layers.length) return; docChange(()=>{ const a=doc.layers; [a[ui.layer],a[j]]=[a[j],a[ui.layer]]; ui.layer=j; }); }
 function mergeDown(){
   if(ui.layer===0){ toast('맨 아래 레이어는 합칠 대상이 없습니다'); return; }
   docChange(()=>{ const U=doc.layers[ui.layer], D=doc.layers[ui.layer-1]; const {w,h:H}=doc;
-    for(const f of doc.frames){ const u=f.cels[U.id], d=f.cels[D.id];
-      for(let i=0;i<w*H;i++){ if(u[i]) d[i]=u[i]; else if(U.outline){ const x=i%w,y=(i/w)|0; if((x>0&&u[i-1])||(x<w-1&&u[i+1])||(y>0&&u[i-w])||(y<H-1&&u[i+w])) d[i]=U.outline; } }
-      delete f.cels[U.id]; }
+    const done=new Map();
+    for(const f of doc.frames){ const u=f.cels[U.id], d0=f.cels[D.id]; let byU=done.get(d0); if(!byU){ byU=new Map(); done.set(d0,byU); }
+      let d=byU.get(u);
+      if(!d){ d=d0.slice(); byU.set(u,d);
+        for(let i=0;i<w*H;i++){ if(u[i]) d[i]=u[i]; else if(U.outline){ const x=i%w,y=(i/w)|0; if((x>0&&u[i-1])||(x<w-1&&u[i+1])||(y>0&&u[i-w])||(y<H-1&&u[i+w])) d[i]=U.outline; } } }
+      f.cels[D.id]=d; delete f.cels[U.id]; }
     doc.layers.splice(ui.layer,1); ui.layer--; });
 }
 
 /* ================= frames & playback ================= */
 let playT=null;
-function addFrame(dup){ docChange(()=>{ const cur=doc.frames[ui.frame]; const cels={}; for(const L of doc.layers) cels[L.id]=dup?cur.cels[L.id].slice():new Uint8Array(doc.w*doc.h); doc.frames.splice(ui.frame+1,0,{dur:cur.dur,cels}); ui.frame++; }); }
-function delFrame(){ if(doc.frames.length<2){ toast('프레임이 하나뿐이라 삭제할 수 없습니다'); return; } docChange(()=>{ doc.frames.splice(ui.frame,1); ui.frame=clamp(ui.frame-1,0,doc.frames.length-1); }); }
+function addFrame(dup){ docChange(()=>{ const cur=doc.frames[ui.frame]; const cels={}; for(const L of doc.layers) cels[L.id]=dup?cur.cels[L.id].slice():new Uint8Array(doc.w*doc.h); doc.frames.splice(ui.frame+1,0,{dur:cur.dur,cels}); tagsInsert(ui.frame+1); ui.frame++; }); }
+function delFrame(){ if(doc.frames.length<2){ toast('프레임이 하나뿐이라 삭제할 수 없습니다'); return; } docChange(()=>{ doc.frames.splice(ui.frame,1); tagsRemove(ui.frame); ui.frame=clamp(ui.frame-1,0,doc.frames.length-1); }); }
 function moveFrame(dir){ const j=ui.frame+dir; if(j<0||j>=doc.frames.length) return; docChange(()=>{ const a=doc.frames; [a[ui.frame],a[j]]=[a[j],a[ui.frame]]; ui.frame=j; }); }
 function gotoFrame(i){ stopPlay(); ui.frame=mod(i,doc.frames.length); renderTimeline(); renderLayers(); changed(); }
-function play(){ if(doc.frames.length<2){ toast('프레임을 2개 이상 만들면 재생할 수 있습니다'); return; } ui.playing=true; ui.playFrame=ui.frame; renderPlayBtn(); tick(); }
-function tick(){ if(!ui.playing) return; requestDraw(); markPlaying(); playT=setTimeout(()=>{ ui.playFrame=(ui.playFrame+1)%doc.frames.length; tick(); },doc.frames[ui.playFrame].dur); }
+function play(){ if(doc.frames.length<2){ toast('프레임을 2개 이상 만들면 재생할 수 있습니다'); return; } const t=tagAt(ui.frame); ui.playRange=t&&t.to>t.from?{from:t.from,to:t.to,dir:t.dir,step:t.dir==='reverse'||t.dir==='pingpong_reverse'?-1:1}:{from:0,to:doc.frames.length-1,dir:'forward',step:1}; ui.playing=true; ui.playFrame=ui.frame; renderPlayBtn(); tick(); }
+function nextPlayFrame(){ const r=ui.playRange; let n=ui.playFrame+r.step;
+  if(r.dir==='pingpong'||r.dir==='pingpong_reverse'){ if(n>r.to||n<r.from){ r.step=-r.step; n=ui.playFrame+r.step; } return clamp(n,r.from,r.to); }
+  if(n>r.to) n=r.from; if(n<r.from) n=r.to; return n; }
+function tick(){ if(!ui.playing) return; requestDraw(); markPlaying(); playT=setTimeout(()=>{ ui.playFrame=nextPlayFrame(); tick(); },doc.frames[ui.playFrame].dur); }
 function stopPlay(){ if(!ui.playing) return; ui.playing=false; clearTimeout(playT); renderPlayBtn(); markPlaying(); requestDraw(); }
 function markPlaying(){ $$('#frameList .fcell').forEach((c,i)=>c.classList.toggle('play',ui.playing&&i===ui.playFrame)); }
 function renderPlayBtn(){ const b=$('#bPlay'); b.innerHTML=ui.playing?ICON.stop:ICON.play; b.setAttribute('aria-label',ui.playing?'정지':'재생'); }
 
 /* ================= palette ops ================= */
-function remapAll(map){ for(const f of doc.frames) for(const id in f.cels){ const c=f.cels[id]; for(let i=0;i<c.length;i++) c[i]=map[c[i]]??0; } for(const L of doc.layers) L.outline=map[L.outline]??0; ui.primary=map[ui.primary]??0; ui.secondary=map[ui.secondary]??0; }
+function remapAll(map){ for(const c of uniqueCels()){ for(let i=0;i<c.length;i++) c[i]=map[c[i]]??0; } for(const L of doc.layers) L.outline=map[L.outline]??0; ui.primary=map[ui.primary]??0; ui.secondary=map[ui.secondary]??0; }
 function applyPalette(np,mode){
   np=np.filter(isHex).map(normHex);
   if(!np.length){ toast('읽을 수 있는 색이 없습니다'); return; }
@@ -508,10 +516,12 @@ function b64enc(u){ let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCh
 function b64dec(s){ const b=atob(s); const u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
 function rle(u){ const out=[]; let i=0; while(i<u.length){ const v=u[i]; let n=1; while(i+n<u.length&&u[i+n]===v&&n<255) n++; out.push(v,n); i+=n; } return b64enc(Uint8Array.from(out)); }
 function unrle(s,n){ const b=b64dec(s); const u=new Uint8Array(n); let p=0; for(let i=0;i+1<b.length&&p<n;i+=2){ u.fill(b[i],p,Math.min(n,p+b[i+1])); p+=b[i+1]; } return u; }
+// version 2: a cel stored as a number is linked to (shares the pixels of) that earlier frame's cel; tags added
 function serialize(){
-  return JSON.stringify({format:'dotlab',version:1,name:doc.name,w:doc.w,h:doc.h,palette:doc.palette,
+  return JSON.stringify({format:'dotlab',version:2,name:doc.name,w:doc.w,h:doc.h,palette:doc.palette,
     layers:doc.layers.map(L=>({id:L.id,name:L.name,visible:L.visible,opacity:L.opacity,locked:L.locked,alphaLock:L.alphaLock,outline:L.outline})),
-    frames:doc.frames.map(f=>({dur:f.dur,cels:Object.fromEntries(doc.layers.map(L=>[L.id,rle(f.cels[L.id])]))}))});
+    frames:doc.frames.map((f,fi)=>({dur:f.dur,cels:Object.fromEntries(doc.layers.map(L=>{ const c=f.cels[L.id]; const g=linkSource(fi,L.id); return [L.id,g<fi?g:rle(c)]; }))})),
+    tags:(doc.tags||[]).map(t=>({name:t.name,from:t.from,to:t.to,dir:t.dir,color:t.color}))});
 }
 function deserialize(o){
   if(!o||o.format!=='dotlab') throw new Error('도트랩 프로젝트 파일이 아닙니다');
@@ -519,11 +529,17 @@ function deserialize(o){
   const palette=(o.palette||[]).filter(isHex).map(normHex).slice(0,MAXPAL); if(!palette.length) palette.push('#000000','#ffffff');
   const layers=(o.layers||[]).map((L,i)=>({id:(L.id|0)||i+1,name:String(L.name||'레이어'),visible:L.visible!==false,opacity:clamp(+L.opacity||1,0,1),locked:!!L.locked,alphaLock:!!L.alphaLock,outline:clamp(L.outline|0,0,palette.length)}));
   if(!layers.length) layers.push(mkLayer(1,'레이어 1'));
-  const frames=(o.frames||[]).map(f=>{ const cels={}; for(const L of layers){ let c; try{ c=f.cels&&f.cels[L.id]?unrle(f.cels[L.id],w*H):new Uint8Array(w*H); }catch(e){ c=new Uint8Array(w*H); } for(let i=0;i<c.length;i++) if(c[i]>palette.length) c[i]=0; cels[L.id]=c; } return {dur:clamp(f.dur|0||120,20,5000),cels}; });
+  const frames=[];
+  for(const f of (o.frames||[])){ const cels={};
+    for(const L of layers){ const s=f.cels&&f.cels[L.id]; let c;
+      if(typeof s==='number'&&s>=0&&s<frames.length) c=frames[s].cels[L.id];
+      else { try{ c=typeof s==='string'&&s?unrle(s,w*H):new Uint8Array(w*H); }catch(e){ c=new Uint8Array(w*H); } for(let i=0;i<c.length;i++) if(c[i]>palette.length) c[i]=0; }
+      cels[L.id]=c; }
+    frames.push({dur:clamp(f.dur|0||120,20,5000),cels}); }
   if(!frames.length){ const cels={}; for(const L of layers) cels[L.id]=new Uint8Array(w*H); frames.push({dur:120,cels}); }
-  return {name:String(o.name||'작품'),w,h:H,palette,layers,frames};
+  return {name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags:cleanTags(o.tags,frames.length)};
 }
 let saveT=null;
 function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',serialize()); }catch(e){} },700); }
 function loadAutosave(){ try{ const s=localStorage.getItem('dotlab.autosave'); if(!s) return null; return deserialize(JSON.parse(s)); }catch(e){ return null; } }
-function replaceDoc(nd){ docChange(()=>{ doc=nd; ui.layer=doc.layers.length-1; ui.frame=0; }); setSel(null); ui.lastPt=null; fitView(); }
+function replaceDoc(nd){ tlReset(); docChange(()=>{ doc=nd; ui.layer=doc.layers.length-1; ui.frame=0; }); setSel(null); ui.lastPt=null; fitView(); }
