@@ -27,16 +27,7 @@ function libStore(list){ FG.lib=JSON.stringify(list); toMain({type:'library',dat
 function libStoreHint(){ return 'Figma 계정의 플러그인 저장소에 보관됩니다(이 컴퓨터의 Figma). 다른 기기로 옮기거나 백업하려면 「파일로」 내려받으세요.'; }
 
 /* files: plain browser download inside the plugin window */
-async function offerFiles(files){
-  try{
-    for(const f of files){
-      const blob=f.data instanceof Blob?f.data:new Blob([f.data],{type:'application/octet-stream'}); const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=f.filename; document.body.append(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),5000); await new Promise(r=>setTimeout(r,350));
-    }
-    toast(files.length>1?`${files.length}개 파일을 내려받았습니다`:'내려받았습니다: '+files[0].filename);
-  }catch(e){ fallbackFiles(files); }
-}
+async function offerFiles(files){ return anchorDownload(files); }
 
 /* AI: Anthropic Messages API with the user's own key, streamed */
 const MODELS={quick:'claude-haiku-4-5-20251001',default:'claude-sonnet-5-5',complex:'claude-opus-5-5'};

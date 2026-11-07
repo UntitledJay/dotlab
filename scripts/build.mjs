@@ -1,7 +1,8 @@
 // Builds both targets from src/:
 //   dist/web/dotlab.html   — single-file web editor (Claude artifact page)
 //   dist/figma/            — Figma plugin (manifest.json, code.js, ui.html)
-// Usage: node scripts/build.mjs [web|figma]   (no argument builds both)
+//   dist/pages/index.html  — the same editor as a complete web page for GitHub Pages (plain downloads, no AI)
+// Usage: node scripts/build.mjs [web|figma|pages]   (no argument builds all three)
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -19,6 +20,27 @@ export function buildWeb() {
   const html = shell + '<script>\n' + editorJs() + '</script>\n';
   mkdirSync(join(root, 'dist/web'), { recursive: true });
   writeFileSync(join(root, 'dist/web/dotlab.html'), html);
+  return html;
+}
+
+const FAVICON = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'><path fill='#18181c' d='M1 0h6v1h1v6h-1v1H1v-1H0V1h1z'/><path fill='#3d7be0' d='M1 1h6v6H1z'/><path fill='#9cc0f5' d='M2 2h2v2H2z'/></svg>");
+
+// A complete document: the shell's <title>, fonts and styles go in <head>, the app in <body>.
+// The artifact host normally adds the reset ([hidden], margins); here the page carries it.
+export function buildPages() {
+  const shell = read('src/shell.html');
+  const at = shell.indexOf('<div id="app">');
+  if (at < 0) throw new Error('build: marker not found (app)');
+  const html = '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n' +
+    '<meta name="description" content="직접 찍고 다듬는 픽셀아트 에디터 — 레이어·애니메이션·.aseprite·타임랩스·픽셀 UI 컴포넌트">\n' +
+    `<link rel="icon" href="${FAVICON}">\n` + shell.slice(0, at) +
+    '<style>[hidden]{display:none!important}img{max-width:100%}</style>\n</head>\n<body>\n' + shell.slice(at) +
+    '<script>\n' + editorJs(['src/platform/pages.js']) + '</script>\n</body>\n</html>\n';
+  const out = join(root, 'dist/pages');
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'index.html'), html);
+  writeFileSync(join(out, '.nojekyll'), '');
   return html;
 }
 
@@ -68,4 +90,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const t = process.argv[2];
   if (!t || t === 'web') console.log('dist/web/dotlab.html', buildWeb().length, 'bytes');
   if (!t || t === 'figma') console.log('dist/figma/ui.html', buildFigma().length, 'bytes');
+  if (!t || t === 'pages') console.log('dist/pages/index.html', buildPages().length, 'bytes');
 }

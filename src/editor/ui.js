@@ -185,6 +185,17 @@ async function offerFiles(files){
   }
   fallbackFiles(files);
 }
+// plain browser download, one file after another (Figma plugin and GitHub Pages builds)
+async function anchorDownload(files){
+  try{
+    for(const f of files){
+      const blob=f.data instanceof Blob?f.data:new Blob([f.data],{type:'application/octet-stream'}); const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=f.filename; document.body.append(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000); await new Promise(r=>setTimeout(r,350));
+    }
+    toast(files.length>1?`${files.length}개 파일을 내려받았습니다`:'내려받았습니다: '+files[0].filename);
+  }catch(e){ fallbackFiles(files); }
+}
 function fallbackFiles(files){
   const body=h('div',{class:'fallback',style:'display:flex;flex-direction:column;gap:10px'},h('p',{class:'hint',text:'이 화면에서는 파일을 바로 내려받을 수 없습니다. 이미지는 길게 누르거나 오른쪽 클릭해 저장하고, 텍스트는 복사해 파일로 저장하세요.'}));
   for(const f of files){

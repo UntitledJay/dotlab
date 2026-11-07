@@ -11,6 +11,7 @@ npm run build                     # dist/web/dotlab.html, dist/figma/
 npm test
 ```
 
+- **바로 쓰기**: https://untitledjay.github.io/dotlab/ (GitHub Pages. AI 생성은 Claude 아티팩트 버전과 Figma 플러그인에서 씁니다)
 - **웹 버전**: `dist/web/dotlab.html`을 브라우저로 열면 에디터와 이미지 변환을 바로 쓸 수 있습니다. AI 생성은 Claude 아티팩트로 게시했을 때 동작합니다(기능 `sample`, `downloads`).
 - **Figma 플러그인**: Figma 데스크톱 앱에서 Plugins → Development → Import plugin from manifest…로 `dist/figma/manifest.json`을 고릅니다. 자세한 사용법은 `figma/README.md`에 있습니다.
 

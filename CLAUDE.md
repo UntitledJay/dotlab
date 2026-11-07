@@ -1,9 +1,10 @@
 # 도트랩 (DotLab) — Claude Code 작업 안내
 
-직접 찍고 AI로 생성하는 픽셀아트 에디터입니다. 같은 소스에서 두 가지 결과물을 빌드합니다.
+직접 찍고 AI로 생성하는 픽셀아트 에디터입니다. 같은 소스에서 세 가지 결과물을 빌드합니다.
 
 - **웹 버전** `dist/web/dotlab.html`: 파일 하나로 된 페이지. Claude 아티팩트로 게시해 쓰며, AI는 아티팩트 런타임(`window.claude.use('sample')`)으로 호출합니다.
 - **Figma 플러그인** `dist/figma/`: `manifest.json`, `code.js`, `ui.html`. AI는 사용자가 입력한 Anthropic API 키로 호출합니다.
+- **GitHub Pages** `dist/pages/index.html`: 같은 에디터를 완전한 웹 페이지로 만든 것. 파일 저장은 일반 다운로드, AI는 꺼져 있습니다(Claude 런타임이 없음). https://untitledjay.github.io/dotlab/
 
 기획서는 `docs/plan.html`(v0.2, 경쟁 분석 포함)에 있습니다.
 
@@ -12,12 +13,13 @@
 ```bash
 npm install                 # playwright (테스트용)
 npx playwright install chromium   # 처음 한 번
-npm run build               # dist/web, dist/figma 둘 다
-npm test                    # 빌드 후 테스트 6개 실행
+npm run build               # dist/web, dist/figma, dist/pages 셋 다
+npm test                    # 빌드 후 테스트 7개 실행
 ```
 
 - Chromium을 따로 설치한 환경이면 `CHROMIUM_PATH=/path/to/chrome npm test`로 실행합니다.
 - 코드를 바꾸면 커밋 전에 `npm test`를 통과시킵니다.
+- **배포**: `main`에 푸시하면 `.github/workflows/pages.yml`이 테스트를 돌린 뒤 `dist/pages`를 `gh-pages` 브랜치에 올립니다(저장소 Settings → Pages → Deploy from a branch → `gh-pages` / root). 웹 아티팩트는 `dist/web/dotlab.html`을 Artifact로 다시 게시합니다.
 - Figma 플러그인은 Figma 데스크톱 앱에서 Plugins → Development → Import plugin from manifest…로 `dist/figma/manifest.json`을 불러와 확인합니다.
 
 ## 폴더 구조
@@ -36,6 +38,7 @@ src/editor/init.js      이벤트 연결, 단축키, init()
 src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저장, 파일 다운로드, Anthropic API 호출, 캔버스 넣기·가져오기
 src/platform/figma.css  플러그인 창 전용 CSS
 src/platform/figma-keybox.html  AI 탭의 API 키 입력 칸
+src/platform/pages.js   GitHub Pages 전용: 파일 저장을 일반 다운로드(anchorDownload)로, AI는 안내 문구와 함께 끔
 figma/                  플러그인 manifest.json, code.js(Figma 메인 스레드), README.md
 scripts/build.mjs       두 결과물 빌드
 tests/                  node:test + Playwright 테스트
@@ -44,14 +47,14 @@ docs/plan.html          기획서
 
 ## 구조에서 꼭 알아야 할 점
 
-**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, 마지막에 `init`입니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
+**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, Pages는 `platform/pages`, 마지막에 `init`입니다. Pages 빌드는 shell의 `<div id="app">` 앞부분(제목·폰트·스타일)을 `<head>`에 넣고, 아티팩트 호스트가 대신 넣어 주던 `[hidden]` 리셋을 직접 넣습니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
 
 **플랫폼 차이는 함수 재선언으로 바꿉니다.** 같은 스크립트 안에서는 나중에 선언된 `function`이 이깁니다. `platform/figma.js`는 다음을 다시 선언합니다.
 
 | 함수 | 웹 | Figma |
 | --- | --- | --- |
 | `scheduleSave` / `loadAutosave` | `localStorage` | 메인 스레드를 거쳐 `figma.clientStorage` |
-| `offerFiles` | 아티팩트 `downloads` 기능 | `<a download>` |
+| `offerFiles` | 아티팩트 `downloads` 기능 | `anchorDownload`(`<a download>`, Pages도 같음) |
 | `initCapabilities` | `claude.use('sample')`, `claude.use('downloads')` | `claudeShim`(Anthropic Messages API 스트리밍) |
 
 `let`/`const`는 재선언할 수 없으므로, 플랫폼별로 바꿔야 하는 값은 `function`이나 객체 속성으로 둡니다. Figma 빌드는 마지막 `init();`을 `boot();`로 바꿉니다. `boot()`는 메인 스레드의 `init` 메시지(자동 저장본과 API 키)를 받은 뒤 `init()`을 부릅니다.
@@ -148,6 +151,7 @@ doc = {
 | `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소 |
 | `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스(AI 단계 표시), 색감 옮기기(두 방식, 미리보기), 숨긴 그룹·사용자 데이터 태그 색·역방향 핑퐁 가져오기, 비어 있는 링크 셀 보존 |
 | `tests/component.test.mjs` | 컴포넌트 모드 전환·템플릿(상태 수·이름·서로 다른 그림), 9-slice 계산(모서리 1:1, 가장자리 늘림), 캔버스 가이드 끌기와 실행 취소, 숫자 입력·상태 이름·빈 상태, 저장 형식 v3와 v2 읽기, 내보내기 파일·JSON 여백·CSS 선택자, 고정 크기 컴포넌트, 지금 그림을 컴포넌트로, 모서리 잠금(연필·채우기가 테두리로 새지 않음, 도트 모드에선 풀림), 모양 옵션 다시 그리기와 실행 취소·직접 고친 안쪽 영역 유지, 안쪽 반복(타일)과 CSS padding·round, 내 컴포넌트 저장·덮어쓰기·새로 저장·열기·파일 왕복·삭제, 폰 폭 |
+| `tests/pages.test.mjs` | Pages 빌드가 완전한 문서인지, HTTP로 열어 오류 없이 뜨는지, AI 안내, 저장·PNG 내보내기가 실제 다운로드인지(내용 확인), 폰 폭 |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.
