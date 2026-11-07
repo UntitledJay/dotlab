@@ -55,7 +55,7 @@ function init(){
   $('#refVis').addEventListener('change',e=>{ ref.visible=e.target.checked; requestDraw(); });
   $('#refAbove').addEventListener('change',e=>{ ref.above=e.target.checked; requestDraw(); });
   $('#refDel').onclick=()=>{ ref.img=null; $('#refDel').disabled=true; requestDraw(); renderXfer(); };
-  $('#xferAmt').addEventListener('input',renderXfer); $('#xferGo').onclick=applyXfer;
+  $('#xferAmt').addEventListener('input',renderXfer); $('#xferMode').addEventListener('change',renderXfer); $('#xferGo').onclick=applyXfer;
 
   const dh=$('#dropHint');
   stage.addEventListener('dragover',e=>{ e.preventDefault(); dh.hidden=false; });

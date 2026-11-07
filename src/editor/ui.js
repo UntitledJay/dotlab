@@ -55,7 +55,7 @@ function renderTimeline(){
     list.append(h('button',{class:'fcell'+(i===ui.frame?' on':'')+(linked?' linked':''),style:tag?`--tc:${tag.color}`:null,'data-tag':tag?'1':null,
       title:`프레임 ${i+1} · ${f.dur}ms`+(linked?' · 「'+activeLayer().name+'」 셀이 앞 프레임과 링크됨':'')+(tag?` · 태그 「${tag.name}」`:''),onclick:()=>gotoFrame(i)},cv,h('span',{class:'fn',text:String(i+1)}))); });
   const row=$('#tagRow'); row.textContent='';
-  doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),`${t.name} · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:t.dir==='reverse'?'역방향':'핑퐁'}):null)));
+  doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),`${t.name} · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:{reverse:'역방향',pingpong:'핑퐁',pingpong_reverse:'역방향 핑퐁'}[t.dir]}):null)));
   row.hidden=!doc.tags.length;
   if(ui.playTag>=doc.tags.length) ui.playTag=-1;
   const ps=$('#playScope'); ps.textContent=''; ps.append(h('option',{value:-1,text:'전체 프레임'}),...doc.tags.map((t,k)=>h('option',{value:k,text:'태그: '+t.name}))); ps.value=String(ui.playTag);
@@ -244,7 +244,7 @@ function exportDialog(){
         opt('gif','GIF 애니메이션',`프레임 ${doc.frames.length}개와 프레임별 지속시간을 담아 반복 재생합니다.`,anim),
         opt('sheet','스프라이트 시트 + JSON','모든 프레임을 한 장에 배치하고, 게임 엔진에서 읽는 프레임 좌표와 태그 JSON(Aseprite 형식)을 함께 저장합니다.'),
         opt('aseprite','Aseprite 파일 (.aseprite)','레이어·프레임·태그·링크 셀·팔레트를 그대로 담아 Aseprite에서 이어서 작업할 수 있습니다. 배율은 적용되지 않습니다.'),
-        opt('timelapse','타임랩스 GIF',TL.snaps.length>2?`이 작업을 연 뒤부터 기록한 과정 ${TL.snaps.length}단계를 짧은 GIF로 만듭니다.`:'아직 기록된 과정이 거의 없습니다. 그림을 그리면 단계마다 자동으로 기록됩니다.'),
+        opt('timelapse','타임랩스 GIF',TL.snaps.length>2?`이 작업을 연 뒤부터 기록한 과정 ${TL.snaps.length}단계를 짧은 GIF로 만듭니다. AI가 만든 단계에는 왼쪽 위에 AI 표시가 붙습니다.`:'아직 기록된 과정이 거의 없습니다. 그림을 그리면 단계마다 자동으로 기록됩니다.'),
         opt('project','프로젝트 파일 (.dotlab.json)','레이어·프레임·팔레트를 그대로 보존합니다. 열기로 다시 불러올 수 있습니다.'),
         opt('palette','팔레트 (.txt)','한 줄에 색 하나씩 적은 hex 목록입니다.')),
       h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc),
@@ -271,7 +271,7 @@ function tagDialog(idx){
   const N=doc.frames.length;
   const nm=h('input',{value:t.name,'aria-label':'태그 이름',maxlength:40});
   const fr=h('input',{type:'number',min:1,max:N,value:t.from+1,style:'width:70px','aria-label':'시작 프레임'}), to=h('input',{type:'number',min:1,max:N,value:t.to+1,style:'width:70px','aria-label':'끝 프레임'});
-  const dir=h('select',{'aria-label':'재생 방향'},[['forward','정방향'],['reverse','역방향'],['pingpong','핑퐁 (갔다가 돌아오기)']].map(([v,l])=>h('option',{value:v,text:l,selected:v===t.dir})));
+  const dir=h('select',{'aria-label':'재생 방향'},[['forward','정방향'],['reverse','역방향'],['pingpong','핑퐁 (갔다가 돌아오기)'],['pingpong_reverse','역방향 핑퐁 (끝에서 시작해 돌아오기)']].map(([v,l])=>h('option',{value:v,text:l,selected:v===t.dir})));
   let color=t.color; const sw=h('div',{class:'swrow',role:'radiogroup','aria-label':'태그 색'});
   const paint=()=>{ sw.textContent=''; for(const c of TAGCOLORS) sw.append(h('button',{class:'tagsw'+(c===color?' on':''),style:'background:'+c,'aria-label':c,'aria-pressed':String(c===color),onclick:()=>{ color=c; paint(); }})); }; paint();
   const actions=[{label:'취소'},{label:'저장',primary:true,onClick:()=>{ let a=clamp(fr.value|0,1,N)-1, b=clamp(to.value|0,1,N)-1; if(b<a) [a,b]=[b,a]; saveTag({name:nm.value.trim().slice(0,40)||'태그',from:a,to:b,dir:dir.value,color},idx); }}];

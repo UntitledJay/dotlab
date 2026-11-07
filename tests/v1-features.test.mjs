@@ -32,6 +32,26 @@ function rgbaAseprite() {
   return out;
 }
 
+
+// Hidden group with a child, a visible top layer, and a ping-pong-reverse tag whose colour lives in a user data chunk (Aseprite 1.3+).
+function groupAseprite() {
+  const out = []; const u8 = v => out.push(v & 255), u16 = v => out.push(v & 255, (v >> 8) & 255), u32 = v => out.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255);
+  const str = s => { const b = Buffer.from(s, 'utf8'); u16(b.length); out.push(...b); }; const zero = k => { for (let i = 0; i < k; i++) out.push(0); };
+  const patch = (at, v) => { out[at] = v & 255; out[at + 1] = (v >>> 8) & 255; out[at + 2] = (v >>> 16) & 255; out[at + 3] = (v >>> 24) & 255; };
+  u32(0); u16(0xA5E0); u16(1); u16(4); u16(4); u16(32); u32(1); u16(100); u32(0); u32(0); u8(0); zero(3); u16(0); u8(1); u8(1); u16(0); u16(0); u16(16); u16(16); zero(84);
+  const chunks = [
+    () => { u16(0x2004); u16(2); u16(1); u16(0); u16(0); u16(0); u16(0); u8(255); zero(3); str('숨긴 그룹'); },   // flags 2 = editable, not visible
+    () => { u16(0x2004); u16(3); u16(0); u16(1); u16(0); u16(0); u16(0); u8(255); zero(3); str('그룹 안'); },
+    () => { u16(0x2004); u16(3); u16(0); u16(0); u16(0); u16(0); u16(0); u8(255); zero(3); str('밖'); },
+    () => { u16(0x2005); u16(1); u16(0); u16(0); u8(255); u16(0); u16(0); zero(5); u16(1); u16(1); out.push(10, 20, 30, 255); },
+    () => { u16(0x2018); u16(1); zero(8); u16(0); u16(0); u8(3); u16(0); zero(6); u8(0); u8(0); u8(0); u8(0); str('되감기'); },
+    () => { u16(0x2020); u32(2); u8(12); u8(34); u8(56); u8(255); }];
+  const s = out.length; u32(0); u16(0xF1FA); u16(chunks.length); u16(100); zero(2); u32(chunks.length);
+  for (const c of chunks) { const cs = out.length; u32(0); c(); patch(cs, out.length - cs); }
+  patch(s, out.length - s); patch(0, out.length);
+  return out;
+}
+
 test('v1 features', async () => {
   const browser = await launch();
   try {
@@ -134,6 +154,48 @@ test('v1 features', async () => {
     // ---- sprite sheet JSON carries tags
     const tagsJson = await page.evaluate(() => { doc.tags = [{ name: 'walk', from: 0, to: 0, dir: 'forward', color: '#3549d6' }]; return doc.tags.map(t => ({ name: t.name, from: t.from, to: t.to, direction: t.dir, color: t.color + 'ff' })); });
     assert.equal(tagsJson[0].direction, 'forward');
+
+    // ---- .aseprite: hidden groups hide their layers, tag colour from user data, ping-pong reverse
+    const grp = await page.evaluate(async bytes => { const { doc: d } = await asepriteToDoc(new Uint8Array(bytes), 'g'); return { layers: d.layers.map(L => `${L.name}:${L.visible}`), tag: d.tags[0] }; }, groupAseprite());
+    assert.deepEqual(grp, { layers: ['그룹 안:false', '밖:true'], tag: { name: '되감기', from: 0, to: 0, dir: 'pingpong_reverse', color: '#0c2238' } });
+    assert.equal(await page.evaluate(() => playSequence({ from: 0, to: 3, dir: 'pingpong_reverse' }).join(',')), '3,2,1,0,1,2');
+
+    // ---- .aseprite export: tag colours and ping-pong reverse survive, an empty linked cel stays linked
+    const out2 = await page.evaluate(async () => {
+      replaceDoc(makeDoc(8, 8, PRESETS['PICO-8 (16색)'], 'link')); addLayer(); ui.layer = 0; beginEdit(); cel()[9] = 2; endEdit();
+      ui.layer = 1; addFrame('link');                                   // layer 2 is empty and linked across both frames
+      saveTag({ name: '되감기', from: 0, to: 1, dir: 'pingpong_reverse', color: '#d6345a' });
+      const bytes = await docToAseprite(); const { doc: d } = await asepriteToDoc(bytes, 'b');
+      return { bytes: Array.from(bytes), tags: d.tags, emptyLinked: d.frames[0].cels[2] === d.frames[1].cels[2], drawnLinked: d.frames[0].cels[1] === d.frames[1].cels[1] };
+    });
+    assert.deepEqual(out2.tags, [{ name: '되감기', from: 0, to: 1, dir: 'pingpong_reverse', color: '#d6345a' }]);
+    assert.ok(out2.emptyLinked && out2.drawnLinked, 'linked cels, empty or not, stay linked');
+    const ase2 = new Aseprite(Buffer.from(out2.bytes), 'y.aseprite'); ase2.parse();
+    assert.equal(ase2.tags[0].name, '되감기'); assert.equal(ase2.tags[0].color, 'd6345a');
+    assert.equal(ase2.frames[1].cels.filter(c => c.celType === 1).length, 2, 'both layers linked in frame 2');
+
+    // ---- timelapse marks AI steps with a badge in the corner
+    const aiStep = await page.evaluate(async () => {
+      replaceDoc(makeDoc(16, 16, PRESETS['PICO-8 (16색)'], 'ai')); ui.layer = 0; beginEdit(); cel()[100] = 8; endEdit();
+      candApply({ x: 4, y: 4, w: 2, h: 1, data: new Uint8Array([3, 3]) });
+      const flags = TL.snaps.map(s => s.ai);
+      const dec = new ImageDecoder({ data: buildTimelapseGIF(8).buffer, type: 'image/gif' }); await dec.tracks.ready;
+      const px = async i => { const { image } = await dec.decode({ frameIndex: i }); const c = new OffscreenCanvas(image.displayWidth, image.displayHeight).getContext('2d'); c.drawImage(image, 0, 0); image.close(); return Array.from(c.getImageData(1, 1, 1, 1).data); };
+      return { flags, last: await px(flags.length - 1), first: await px(0) };
+    });
+    assert.deepEqual(aiStep.flags, [false, false, true]);
+    assert.deepEqual(aiStep.last, [40, 40, 48, 255], 'AI badge on the AI step');
+    assert.equal(aiStep.first[3], 0, 'no badge on hand-drawn steps');
+
+    // ---- colour transfer 'mood' mode: previews the art and keeps each colour's role
+    const mood = await page.evaluate(() => {
+      replaceDoc(sampleDoc()); $('#xferMode').value = 'mood'; renderXfer();
+      const previews = document.querySelectorAll('#xferPrev .xarts canvas').length, before = doc.palette.slice();
+      const blue = pal => pal.map(hex2rgb).reduce((s, [r, , b]) => s + b - r, 0) / pal.length;
+      applyXfer(); const r = { previews, bluer: blue(doc.palette) > blue(before) + 30, darkest: lum(hex2rgb(doc.palette[0])) < 60 };
+      undo(); r.undone = doc.palette.join() === before.join(); $('#xferMode').value = 'rank'; return r;
+    });
+    assert.deepEqual(mood, { previews: 2, bluer: true, darkest: true, undone: true });
     assert.deepEqual(errs, []);
   } finally { await browser.close(); }
 });

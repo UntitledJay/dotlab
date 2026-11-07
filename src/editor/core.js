@@ -476,6 +476,8 @@ function unlinkCel(){
   const id=activeLayer().id; if(!isLinked(ui.frame,id)){ toast('이 프레임의 셀은 다른 프레임과 링크되어 있지 않습니다'); return; }
   docChange(()=>{ const f=doc.frames[ui.frame]; f.cels[id]=f.cels[id].slice(); }); toast('링크를 풀었습니다. 이제 이 프레임만 따로 고칠 수 있습니다.');
 }
+// tag directions in Aseprite's order (the file stores the index)
+const TAGDIRS=['forward','reverse','pingpong','pingpong_reverse'];
 const TAGCOLORS=['#3549d6','#d6345a','#1f9d55','#d68a00','#8a3fd6','#0f9bb5'];
 function saveTag(t,idx){ docChange(()=>{ if(idx==null) doc.tags.push(t); else doc.tags[idx]=t; doc.tags.sort((a,b)=>a.from-b.from||a.to-b.to); }); }
 function deleteTag(idx){ docChange(()=>{ doc.tags.splice(idx,1); }); ui.playTag=-1; }
@@ -484,7 +486,8 @@ function moveFrame(dir){ const j=ui.frame+dir; if(j<0||j>=doc.frames.length) ret
 function gotoFrame(i){ stopPlay(); ui.frame=mod(i,doc.frames.length); renderTimeline(); renderLayers(); changed(); }
 function playRange(){ const t=ui.playTag>=0&&doc.tags[ui.playTag]; const last=doc.frames.length-1; return t?{from:Math.min(t.from,last),to:Math.min(t.to,last),dir:t.dir}:{from:0,to:last,dir:'forward'}; }
 // frame order for one loop of a range, as Aseprite plays it (ping-pong does not repeat the end frames)
-function playSequence(r){ const f=[]; if(r.dir==='reverse') for(let i=r.to;i>=r.from;i--) f.push(i); else { for(let i=r.from;i<=r.to;i++) f.push(i); if(r.dir==='pingpong') for(let i=r.to-1;i>r.from;i--) f.push(i); } return f; }
+function playSequence(r){ const f=[], fwd=()=>{ for(let i=r.from;i<=r.to;i++) f.push(i); }, back=()=>{ for(let i=r.to;i>=r.from;i--) f.push(i); };
+  if(r.dir==='reverse') back(); else if(r.dir==='pingpong_reverse'){ back(); for(let i=r.from+1;i<r.to;i++) f.push(i); } else { fwd(); if(r.dir==='pingpong') for(let i=r.to-1;i>r.from;i--) f.push(i); } return f; }
 function play(){
   const r=playRange(); if(r.to-r.from<1){ toast(ui.playTag>=0?'이 태그에는 프레임이 하나뿐입니다':'프레임을 2개 이상 만들면 재생할 수 있습니다'); return; }
   ui.playSeq=playSequence(r); const k=ui.playSeq.indexOf(ui.frame); ui.playPos=k>=0?k:0; ui.playFrame=ui.playSeq[ui.playPos]; ui.playing=true; renderPlayBtn(); tick();
@@ -553,7 +556,7 @@ function deserialize(o){
     frames.push({dur:clamp(f.dur|0||120,20,5000),cels}); });
   if(!frames.length){ const cels={}; for(const L of layers) cels[L.id]=new Uint8Array(w*H); frames.push({dur:120,cels}); }
   const last=frames.length-1;
-  const tags=(Array.isArray(o.tags)?o.tags:[]).map(t=>({name:String(t.name||'태그').slice(0,40),from:clamp(t.from|0,0,last),to:clamp(t.to|0,0,last),dir:['forward','reverse','pingpong'].includes(t.dir)?t.dir:'forward',color:isHex(t.color)?normHex(t.color):TAGCOLORS[0]})).filter(t=>t.to>=t.from);
+  const tags=(Array.isArray(o.tags)?o.tags:[]).map(t=>({name:String(t.name||'태그').slice(0,40),from:clamp(t.from|0,0,last),to:clamp(t.to|0,0,last),dir:TAGDIRS.includes(t.dir)?t.dir:'forward',color:isHex(t.color)?normHex(t.color):TAGCOLORS[0]})).filter(t=>t.to>=t.from);
   return {name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags};
 }
 let saveT=null;
