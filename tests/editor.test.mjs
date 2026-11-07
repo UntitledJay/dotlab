@@ -82,5 +82,24 @@ test('editor core', async () => {
     const sw = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(sw <= 0, 'no horizontal scroll at phone width');
     assert.deepEqual(errs, []);
+
+    // the pixel under the cursor is the pixel drawn there, on HiDPI screens and when an embedding viewer scales the page
+    for (const [label, opts, css] of [['HiDPI (devicePixelRatio 2)', { deviceScaleFactor: 2 }, ''], ['page scaled to 0.8', {}, 'body{transform:scale(.8);transform-origin:0 0}']]) {
+      const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 }, ...opts });
+      await p2.goto(webTestPage()); await p2.waitForTimeout(400);
+      if (css) await p2.addStyleTag({ content: css });
+      await p2.evaluate(() => { replaceDoc(makeDoc(16, 16, PRESETS['PICO-8 (16색)'], 't')); ui.primary = 9; ui.brush = 1; setTool('pencil'); }); await p2.waitForTimeout(300);
+      for (const [x, y] of [[1, 1], [8, 8], [14, 14]]) {
+        // where draw() put the centre of pixel (x,y): bitmap position → screen position through the canvas's rendered box
+        const at = await p2.evaluate(([x, y]) => { const r = view.getBoundingClientRect(); const bx = (ui.panX + (x + .5) * ui.zoom) * dpr, by = (ui.panY + (y + .5) * ui.zoom) * dpr;
+          return [r.left + bx * r.width / view.width, r.top + by * r.height / view.height]; }, [x, y]);
+        await p2.evaluate(() => { cel().fill(0); changed(); });
+        await p2.mouse.click(at[0], at[1]);
+        const got = await p2.evaluate(() => { const i = cel().findIndex(v => v); return i < 0 ? null : [i % 16, i / 16 | 0]; });
+        assert.deepEqual(got, [x, y], `${label}: clicking the drawn pixel ${x},${y} paints it`);
+      }
+      assert.equal(await p2.evaluate(() => view.clientWidth === stage.clientWidth && view.clientHeight === stage.clientHeight), true, `${label}: canvas box matches the stage`);
+      await p2.close();
+    }
   } finally { await browser.close(); }
 });

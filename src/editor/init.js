@@ -90,7 +90,7 @@ function init(){
     else if(k==='.'){ gotoFrame(ui.frame+1); }
     else if(k==='enter'){ ui.playing?stopPlay():play(); }
   });
-  window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; if(!drag) view.style.cursor=ui.tool==='hand'?'grab':'crosshair'; } });
+  window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; if(!drag) view.style.cursor=cursorFor(ui.tool); requestDraw(); } });
   window.addEventListener('blur',()=>{ spaceDown=false; });
 
   $$('#modeSwitch .chip').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));

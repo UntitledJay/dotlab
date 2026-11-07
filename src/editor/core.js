@@ -165,7 +165,9 @@ function getCheck(){
   return checkPat;
 }
 function resizeView(){
-  const r=stage.getBoundingClientRect(); dpr=window.devicePixelRatio||1; vw=Math.max(1,r.width); vh=Math.max(1,r.height);
+  // vw/vh are layout pixels; dpr is device pixels per layout pixel, including any CSS scaling of the page (an embedding viewer may scale it)
+  const r=stage.getBoundingClientRect(); vw=Math.max(1,stage.clientWidth||r.width); vh=Math.max(1,stage.clientHeight||r.height);
+  dpr=(window.devicePixelRatio||1)*(r.width>0&&stage.clientWidth?r.width/stage.clientWidth:1);
   view.width=Math.round(vw*dpr); view.height=Math.round(vh*dpr);
   if(doc && (!ui.fitted || !ui.userView)){ fitView(); ui.fitted=true; }
   requestDraw();
@@ -213,6 +215,14 @@ function draw(){
     const s=ui.brush, o=brushOrigin(s);
     ctx.strokeStyle=tok.ants; ctx.lineWidth=1;
     for(const [mx,my] of mirrors(hv.x-o,hv.y-o,s)) ctx.strokeRect(ox+mx*z+.5,oy+my*z+.5,s*z-1,s*z-1);
+  }
+  // drawing tools hide the system cursor and draw a crosshair from the same coordinates the brush uses, so the two always line up
+  const cu=ui.cursor;
+  if(cu && !ui.playing && cursorFor(ui.tool)==='none' && !spaceDown && !(drag&&drag.pan)){
+    const cx=Math.round(cu.x)+.5, cy=Math.round(cu.y)+.5, g=3, a=8; ctx.save(); ctx.setLineDash([]);
+    const arms=()=>{ ctx.beginPath(); ctx.moveTo(cx-a,cy); ctx.lineTo(cx-g,cy); ctx.moveTo(cx+g,cy); ctx.lineTo(cx+a,cy); ctx.moveTo(cx,cy-a); ctx.lineTo(cx,cy-g); ctx.moveTo(cx,cy+g); ctx.lineTo(cx,cy+a); ctx.stroke(); ctx.fillRect(cx-.5,cy-.5,1,1); };
+    ctx.lineWidth=3; ctx.strokeStyle=tok.panel; ctx.fillStyle=tok.panel; ctx.globalAlpha=.9; arms(); ctx.globalAlpha=1;
+    ctx.lineWidth=1; ctx.strokeStyle=tok.ants; ctx.fillStyle=tok.ants; arms(); ctx.restore();
   }
 }
 setInterval(()=>{ if(ui.sel){ antsPhase=(antsPhase+1)%8; requestDraw(); } },140);
@@ -405,19 +415,23 @@ const TOOLS={
   move:{down(){ if(!canEdit()){drag.dead=true;return;} beginEdit(); drag.src=cel().slice(); drag.mask=ui.sel?ui.sel.slice():null; },move(p){ if(!drag.dead) applyMove(p.x-drag.start.x,p.y-drag.start.y); },up(){ if(!drag.dead) endEdit(); }},
   hand:{},
 };
-function setTool(id){ ui.tool=id; $$('#toolBtns .tool').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===id))); renderToolOpts(); updStatus(); view.style.cursor=id==='hand'?'grab':'crosshair'; requestDraw(); }
+function setTool(id){ ui.tool=id; $$('#toolBtns .tool').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===id))); renderToolOpts(); updStatus(); view.style.cursor=cursorFor(id); requestDraw(); }
+// system cursor for a tool: drawing tools use the crosshair drawn on the canvas (see draw())
+const DRAWN_CURSOR=['pencil','eraser','fill','picker','line','rect','ellipse'];
+function cursorFor(tool){ return tool==='hand'?'grab':DRAWN_CURSOR.includes(tool)?'none':'crosshair'; }
 
 /* ================= pointer input ================= */
 const pointers=new Map(); let gesture=null, spaceDown=false, wheelAcc=0;
-function docPos(e){ const r=view.getBoundingClientRect(); return {x:Math.floor((e.clientX-r.left-ui.panX)/ui.zoom), y:Math.floor((e.clientY-r.top-ui.panY)/ui.zoom)}; }
+function viewPt(e){ const r=view.getBoundingClientRect(), sx=view.clientWidth&&r.width?r.width/view.clientWidth:1, sy=view.clientHeight&&r.height?r.height/view.clientHeight:1; return {x:(e.clientX-r.left)/sx, y:(e.clientY-r.top)/sy}; }
+function docPos(e){ const q=viewPt(e); return {x:Math.floor((q.x-ui.panX)/ui.zoom), y:Math.floor((q.y-ui.panY)/ui.zoom)}; }
 // the point a tool works on: the pixel under the cursor, or for an even-sized centred brush the nearest grid corner
-function toolPos(e,tool=ui.tool){ if(ui.brush%2||!CENTRED.includes(tool)) return docPos(e); const r=view.getBoundingClientRect(); return {x:Math.round((e.clientX-r.left-ui.panX)/ui.zoom), y:Math.round((e.clientY-r.top-ui.panY)/ui.zoom)}; }
+function toolPos(e,tool=ui.tool){ if(ui.brush%2||!CENTRED.includes(tool)) return docPos(e); const q=viewPt(e); return {x:Math.round((q.x-ui.panX)/ui.zoom), y:Math.round((q.y-ui.panY)/ui.zoom)}; }
 view.addEventListener('pointerdown',e=>{
-  view.setPointerCapture(e.pointerId); pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  view.setPointerCapture(e.pointerId); pointers.set(e.pointerId,viewPt(e)); ui.cursor=e.pointerType==='touch'?null:viewPt(e);
   if(pointers.size===2){ if(drag&&pend){ const c=doc.frames[pend.f].cels[pend.id]; c.set(pend.before); pend=null; changed(); } drag=null; startGesture(); return; }
   if(pointers.size>2) return;
   stopPlay();
-  if(e.button===1||spaceDown||ui.tool==='hand'){ e.preventDefault(); drag={pan:true,sx:e.clientX,sy:e.clientY,px:ui.panX,py:ui.panY}; view.style.cursor='grabbing'; return; }
+  if(e.button===1||spaceDown||ui.tool==='hand'){ e.preventDefault(); const q=viewPt(e); drag={pan:true,sx:q.x,sy:q.y,px:ui.panX,py:ui.panY}; view.style.cursor='grabbing'; return; }
   if(e.button!==0&&e.button!==2) return;
   if(ui.mode==='comp'&&guideDown(e)) return;   // 9-slice guides come before the tool
   const p=toolPos(e); drag={tool:ui.tool,button:e.button,start:p,last:p,pts:[]};
@@ -425,12 +439,13 @@ view.addEventListener('pointerdown',e=>{
   TOOLS[ui.tool].down?.(p,e);
 });
 view.addEventListener('pointermove',e=>{
-  if(pointers.has(e.pointerId)) pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.has(e.pointerId)) pointers.set(e.pointerId,viewPt(e));
+  const prevC=ui.cursor; ui.cursor=e.pointerType==='touch'?null:viewPt(e); if(!drag&&ui.cursor&&(!prevC||prevC.x!==ui.cursor.x||prevC.y!==ui.cursor.y)&&cursorFor(ui.tool)==='none') requestDraw();
   if(gesture){ moveGesture(); return; }
   if(guideMove(e)) return;
   const p=toolPos(e,drag&&drag.tool?drag.tool:ui.tool); const prevH=ui.hover; ui.hover=p; updStatus(docPos(e));
   if(!drag){ if(!prevH||prevH.x!==p.x||prevH.y!==p.y) requestDraw(); return; }
-  if(drag.pan){ ui.userView=true; ui.panX=Math.round(drag.px+e.clientX-drag.sx); ui.panY=Math.round(drag.py+e.clientY-drag.sy); requestDraw(); return; }
+  if(drag.pan){ const q=viewPt(e); ui.userView=true; ui.panX=Math.round(drag.px+q.x-drag.sx); ui.panY=Math.round(drag.py+q.y-drag.sy); requestDraw(); return; }
   if(p.x===drag.last.x&&p.y===drag.last.y) return;
   TOOLS[drag.tool].move?.(p,e); drag.last=p; requestDraw();
 });
@@ -439,23 +454,24 @@ function endPointer(e){
   if(gesture){ if(pointers.size<2) gesture=null; return; }
   if(guideUp()) return;
   if(!drag) return;
-  if(drag.pan){ drag=null; view.style.cursor=(ui.tool==='hand'||spaceDown)?'grab':'crosshair'; return; }
+  if(drag.pan){ drag=null; view.style.cursor=spaceDown?'grab':cursorFor(ui.tool); return; }
   TOOLS[drag.tool].up?.(toolPos(e,drag.tool),e); drag=null;
 }
 view.addEventListener('pointerup',endPointer);
 view.addEventListener('pointercancel',endPointer);
-view.addEventListener('pointerleave',()=>{ if(!drag){ ui.hover=null; requestDraw(); updStatus(); } });
+view.addEventListener('pointerleave',()=>{ ui.cursor=null; if(!drag){ ui.hover=null; updStatus(); } requestDraw(); });
 view.addEventListener('contextmenu',e=>e.preventDefault());
 view.addEventListener('wheel',e=>{
-  e.preventDefault(); const r=view.getBoundingClientRect();
+  e.preventDefault(); const q=viewPt(e);
   if(e.shiftKey&&!e.ctrlKey){ ui.panX-=Math.round(e.deltaY||e.deltaX); requestDraw(); return; }
   wheelAcc+=e.deltaY*(e.deltaMode===1?30:1);
-  if(Math.abs(wheelAcc)>=(e.ctrlKey?12:50)){ zoomStep(wheelAcc<0?1:-1,e.clientX-r.left,e.clientY-r.top); wheelAcc=0; }
+  if(Math.abs(wheelAcc)>=(e.ctrlKey?12:50)){ zoomStep(wheelAcc<0?1:-1,q.x,q.y); wheelAcc=0; }
 },{passive:false});
-function startGesture(){ const [a,b]=[...pointers.values()]; const r=view.getBoundingClientRect(); gesture={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top,z:ui.zoom,px:ui.panX,py:ui.panY}; }
+// pointers hold canvas layout coordinates (viewPt)
+function startGesture(){ const [a,b]=[...pointers.values()]; gesture={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,z:ui.zoom,px:ui.panX,py:ui.panY}; }
 function moveGesture(){
-  const [a,b]=[...pointers.values()]; if(!b) return; const r=view.getBoundingClientRect(); const g=gesture;
-  const d=Math.hypot(a.x-b.x,a.y-b.y), mx=(a.x+b.x)/2-r.left, my=(a.y+b.y)/2-r.top;
+  const [a,b]=[...pointers.values()]; if(!b) return; const g=gesture;
+  const d=Math.hypot(a.x-b.x,a.y-b.y), mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
   const nz=clamp(Math.round(g.z*d/g.d),1,64); const docx=(g.mx-g.px)/g.z, docy=(g.my-g.py)/g.z;
   ui.userView=true; ui.zoom=nz; ui.panX=Math.round(mx-docx*nz); ui.panY=Math.round(my-docy*nz); updZoom(); requestDraw();
 }

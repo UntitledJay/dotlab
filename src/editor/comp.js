@@ -302,13 +302,13 @@ function drawCompGuides(ctx,ox,oy,W,H){
   ctx.restore();
 }
 let guideDrag=null;
-function guideAt(e){ const g=compGuides(); if(!g) return null; const r=view.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top, z=ui.zoom;
+function guideAt(e){ const g=compGuides(); if(!g) return null; const q=viewPt(e), mx=q.x, my=q.y, z=ui.zoom;
   let best=null, bd=6; for(const q of g){ const d=q.axis==='x'?Math.abs(mx-(ui.panX+q.at*z)):Math.abs(my-(ui.panY+q.at*z)); if(d<bd){ bd=d; best=q; } } return best; }
 function guideDown(e){ if(e.button!==0) return false; const q=guideAt(e); if(!q) return false; guideDrag={k:q.k,orig:{...doc.comp.slice}}; return true; }
 function guideMove(e){
-  if(!guideDrag){ const q=guideAt(e); if(ui.mode==='comp') view.style.cursor=q?(q.axis==='x'?'ew-resize':'ns-resize'):(ui.tool==='hand'?'grab':'crosshair'); return false; }
-  const r=view.getBoundingClientRect(), z=ui.zoom, s=doc.comp.slice, k=guideDrag.k;
-  const px_=Math.round((e.clientX-r.left-ui.panX)/z), py=Math.round((e.clientY-r.top-ui.panY)/z);
+  if(!guideDrag){ const q=guideAt(e); if(ui.mode==='comp') view.style.cursor=q?(q.axis==='x'?'ew-resize':'ns-resize'):cursorFor(ui.tool); if(q&&ui.cursor){ ui.cursor=null; requestDraw(); } return false; }
+  const q=viewPt(e), z=ui.zoom, s=doc.comp.slice, k=guideDrag.k;
+  const px_=Math.round((q.x-ui.panX)/z), py=Math.round((q.y-ui.panY)/z);
   if(k==='l') s.l=clamp(px_,0,doc.w-1-s.r); else if(k==='r') s.r=clamp(doc.w-px_,0,doc.w-1-s.l); else if(k==='t') s.t=clamp(py,0,doc.h-1-s.b); else s.b=clamp(doc.h-py,0,doc.h-1-s.t);
   requestDraw(); return true;
 }
