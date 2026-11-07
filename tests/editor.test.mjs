@@ -64,6 +64,19 @@ test('editor core', async () => {
     const undone = await page.evaluate(() => { while (hist.length) undo(); return { layers: doc.layers.length, painted: doc.frames[0].cels[2].filter(v => v === 12).length }; });
     assert.deepEqual(undone, { layers: 2, painted: 0 }, 'undo all returns to the sample');
 
+    // brushes are centred on the cursor: the painted block's centre is never more than half a pixel away
+    await page.evaluate(() => { replaceDoc(makeDoc(16, 16, PRESETS['PICO-8 (16색)'], 'brush')); ui.primary = 9; setTool('pencil'); });
+    await page.waitForTimeout(300);   // the view refits a frame after a new document
+    for (const tool of ['pencil', 'line']) for (const brush of [1, 2, 3, 4]) for (const [fx, fy] of [[0.2, 0.2], [0.8, 0.3], [0.5, 0.9]]) {
+      await page.evaluate(([t, b]) => { setTool(t); ui.brush = b; cel().fill(0); changed(); }, [tool, brush]);
+      const at = await page.evaluate(([x, y]) => { const r = view.getBoundingClientRect(); return [r.left + ui.panX + x * ui.zoom, r.top + ui.panY + y * ui.zoom]; }, [7 + fx, 7 + fy]);
+      await page.mouse.move(at[0], at[1]); await page.mouse.down(); await page.mouse.up();
+      const blk = await page.evaluate(() => { const c = cel(), xs = [], ys = []; c.forEach((v, i) => { if (v) { xs.push(i % 16); ys.push(i / 16 | 0); } }); return { cx: (Math.min(...xs) + Math.max(...xs) + 1) / 2, cy: (Math.min(...ys) + Math.max(...ys) + 1) / 2, n: xs.length }; });
+      assert.equal(blk.n, brush * brush, `${tool} ${brush}px paints a full block`);
+      assert.ok(Math.abs(blk.cx - (7 + fx)) <= 0.5 && Math.abs(blk.cy - (7 + fy)) <= 0.5, `${tool} brush ${brush} at +${fx},+${fy}: block centre ${blk.cx},${blk.cy}`);
+    }
+    await page.evaluate(() => { ui.brush = 1; setTool('pencil'); });
+
     await page.setViewportSize({ width: 400, height: 860 });
     await page.waitForTimeout(200);
     const sw = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

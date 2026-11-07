@@ -210,7 +210,7 @@ function draw(){
   }
   const hv=ui.hover;
   if(hv && !ui.playing && ['pencil','eraser','line','rect','ellipse'].includes(ui.tool)){
-    const s=ui.brush, o=Math.floor((s-1)/2);
+    const s=ui.brush, o=brushOrigin(s);
     ctx.strokeStyle=tok.ants; ctx.lineWidth=1;
     for(const [mx,my] of mirrors(hv.x-o,hv.y-o,s)) ctx.strokeRect(ox+mx*z+.5,oy+my*z+.5,s*z-1,s*z-1);
   }
@@ -260,8 +260,13 @@ function setPx(c,x,y,v,di){
   if(di&&((mod(x,doc.w)+mod(y,doc.h))&1)) return;
   c[i]=v;
 }
+// Brushes sit centred on the cursor. An odd size has a middle pixel: the pixel under the cursor.
+// An even size has none, so pencil, eraser and line centre it on the grid corner nearest the cursor (toolPos rounds there)
+// and the block spans size/2 pixels on each side; other tools keep the pixel under the cursor.
+const CENTRED=['pencil','eraser','line'];
+function brushOrigin(size,tool=ui.tool){ return size%2===0&&CENTRED.includes(tool)?size/2:Math.floor((size-1)/2); }
 function plot(c,x,y,v,di,size=ui.brush){
-  const o=Math.floor((size-1)/2);
+  const o=brushOrigin(size);
   for(const [mx,my] of mirrors(x-o,y-o,size)) for(let dy=0;dy<size;dy++) for(let dx=0;dx<size;dx++) setPx(c,mx+dx,my+dy,v,di);
 }
 function line(a,b){
@@ -405,6 +410,8 @@ function setTool(id){ ui.tool=id; $$('#toolBtns .tool').forEach(b=>b.setAttribut
 /* ================= pointer input ================= */
 const pointers=new Map(); let gesture=null, spaceDown=false, wheelAcc=0;
 function docPos(e){ const r=view.getBoundingClientRect(); return {x:Math.floor((e.clientX-r.left-ui.panX)/ui.zoom), y:Math.floor((e.clientY-r.top-ui.panY)/ui.zoom)}; }
+// the point a tool works on: the pixel under the cursor, or for an even-sized centred brush the nearest grid corner
+function toolPos(e,tool=ui.tool){ if(ui.brush%2||!CENTRED.includes(tool)) return docPos(e); const r=view.getBoundingClientRect(); return {x:Math.round((e.clientX-r.left-ui.panX)/ui.zoom), y:Math.round((e.clientY-r.top-ui.panY)/ui.zoom)}; }
 view.addEventListener('pointerdown',e=>{
   view.setPointerCapture(e.pointerId); pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){ if(drag&&pend){ const c=doc.frames[pend.f].cels[pend.id]; c.set(pend.before); pend=null; changed(); } drag=null; startGesture(); return; }
@@ -413,7 +420,7 @@ view.addEventListener('pointerdown',e=>{
   if(e.button===1||spaceDown||ui.tool==='hand'){ e.preventDefault(); drag={pan:true,sx:e.clientX,sy:e.clientY,px:ui.panX,py:ui.panY}; view.style.cursor='grabbing'; return; }
   if(e.button!==0&&e.button!==2) return;
   if(ui.mode==='comp'&&guideDown(e)) return;   // 9-slice guides come before the tool
-  const p=docPos(e); drag={tool:ui.tool,button:e.button,start:p,last:p,pts:[]};
+  const p=toolPos(e); drag={tool:ui.tool,button:e.button,start:p,last:p,pts:[]};
   if(ui.mode==='comp') compLockHint(p);
   TOOLS[ui.tool].down?.(p,e);
 });
@@ -421,7 +428,7 @@ view.addEventListener('pointermove',e=>{
   if(pointers.has(e.pointerId)) pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(gesture){ moveGesture(); return; }
   if(guideMove(e)) return;
-  const p=docPos(e); const prevH=ui.hover; ui.hover=p; updStatus(p);
+  const p=toolPos(e,drag&&drag.tool?drag.tool:ui.tool); const prevH=ui.hover; ui.hover=p; updStatus(docPos(e));
   if(!drag){ if(!prevH||prevH.x!==p.x||prevH.y!==p.y) requestDraw(); return; }
   if(drag.pan){ ui.userView=true; ui.panX=Math.round(drag.px+e.clientX-drag.sx); ui.panY=Math.round(drag.py+e.clientY-drag.sy); requestDraw(); return; }
   if(p.x===drag.last.x&&p.y===drag.last.y) return;
@@ -433,7 +440,7 @@ function endPointer(e){
   if(guideUp()) return;
   if(!drag) return;
   if(drag.pan){ drag=null; view.style.cursor=(ui.tool==='hand'||spaceDown)?'grab':'crosshair'; return; }
-  TOOLS[drag.tool].up?.(docPos(e),e); drag=null;
+  TOOLS[drag.tool].up?.(toolPos(e,drag.tool),e); drag=null;
 }
 view.addEventListener('pointerup',endPointer);
 view.addEventListener('pointercancel',endPointer);
