@@ -21,6 +21,11 @@ function onMain(m){
 function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ toMain({type:'autosave',data:serialize()}); }catch(e){} },800); }
 function loadAutosave(){ try{ const s=FG.init&&FG.init.autosave; return s?deserialize(JSON.parse(s)):null; }catch(e){ return null; } }
 
+/* 「내 컴포넌트」 library: figma.clientStorage through the main thread */
+function libLoad(){ try{ const a=JSON.parse(FG.lib!=null?FG.lib:((FG.init&&FG.init.library)||'[]')); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function libStore(list){ FG.lib=JSON.stringify(list); toMain({type:'library',data:FG.lib}); return true; }
+function libStoreHint(){ return 'Figma 계정의 플러그인 저장소에 보관됩니다(이 컴퓨터의 Figma). 다른 기기로 옮기거나 백업하려면 「파일로」 내려받으세요.'; }
+
 /* files: plain browser download inside the plugin window */
 async function offerFiles(files){
   try{

@@ -159,7 +159,7 @@ function tinted(fi,color){
 /* ================= view ================= */
 const view=$('#view'), vctx=view.getContext('2d'), stage=$('#stage');
 let vw=1,vh=1,dpr=1,drawQueued=false,tok={},checkPat=null;
-function readTokens(){ const cs=getComputedStyle(document.documentElement); for(const k of ['check-a','check-b','grid','grid-major','ants','frame-edge','stage','guide']) tok[k]=cs.getPropertyValue('--'+k).trim(); checkPat=null; }
+function readTokens(){ const cs=getComputedStyle(document.documentElement); for(const k of ['check-a','check-b','grid','grid-major','ants','frame-edge','stage','guide','guide-2','panel']) tok[k]=cs.getPropertyValue('--'+k).trim(); checkPat=null; }
 function getCheck(){
   if(!checkPat){ const c=document.createElement('canvas'); c.width=c.height=16; const x=c.getContext('2d'); x.fillStyle=tok['check-a']; x.fillRect(0,0,16,16); x.fillStyle=tok['check-b']; x.fillRect(0,0,8,8); x.fillRect(8,8,8,8); checkPat=vctx.createPattern(c,'repeat'); }
   return checkPat;
@@ -255,6 +255,7 @@ function mirrors(x,y,s=1){ const {w,h:H}=doc; const r=[[x,y]]; if(ui.mirrorX) r.
 function idxOf(x,y){ const {w,h:H}=doc; if(ui.tile){ x=mod(x,w); y=mod(y,H); } if(x<0||y<0||x>=w||y>=H) return -1; return y*w+x; }
 function setPx(c,x,y,v,di){
   const i=idxOf(x,y); if(i<0) return; if(ui.sel&&!ui.sel[i]) return;
+  if(compLocked(i%doc.w,(i/doc.w)|0)) return;   // component mode: corners and edges are locked
   const L=activeLayer(); if(L.alphaLock&&(c[i]===0||v===0)) return;
   if(di&&((mod(x,doc.w)+mod(y,doc.h))&1)) return;
   c[i]=v;
@@ -413,6 +414,7 @@ view.addEventListener('pointerdown',e=>{
   if(e.button!==0&&e.button!==2) return;
   if(ui.mode==='comp'&&guideDown(e)) return;   // 9-slice guides come before the tool
   const p=docPos(e); drag={tool:ui.tool,button:e.button,start:p,last:p,pts:[]};
+  if(ui.mode==='comp') compLockHint(p);
   TOOLS[ui.tool].down?.(p,e);
 });
 view.addEventListener('pointermove',e=>{
@@ -545,7 +547,7 @@ function serialize(){
     layers:doc.layers.map(L=>({id:L.id,name:L.name,visible:L.visible,opacity:L.opacity,locked:L.locked,alphaLock:L.alphaLock,outline:L.outline})),
     frames:doc.frames.map((f,fi)=>Object.assign({dur:f.dur,cels:Object.fromEntries(doc.layers.map(L=>[L.id,celOut(fi,L)]))},f.name?{name:f.name}:{})),
     tags:doc.tags.map(t=>({name:t.name,from:t.from,to:t.to,dir:t.dir,color:t.color})),
-    comp:doc.comp?{kind:doc.comp.kind,slice:doc.comp.slice,label:doc.comp.label}:undefined});
+    comp:doc.comp?{kind:doc.comp.kind,slice:doc.comp.slice,pad:doc.comp.pad,padAuto:doc.comp.padAuto,lock:!!doc.comp.lock,fill:doc.comp.fill,label:doc.comp.label,opts:doc.comp.opts,libId:doc.comp.libId}:undefined});
 }
 function deserialize(o){
   if(!o||o.format!=='dotlab') throw new Error('도트랩 프로젝트 파일이 아닙니다');
@@ -565,7 +567,10 @@ function deserialize(o){
   const tags=(Array.isArray(o.tags)?o.tags:[]).map(t=>({name:String(t.name||'태그').slice(0,40),from:clamp(t.from|0,0,last),to:clamp(t.to|0,0,last),dir:TAGDIRS.includes(t.dir)?t.dir:'forward',color:isHex(t.color)?normHex(t.color):TAGCOLORS[0]})).filter(t=>t.to>=t.from);
   let comp=null; if(o.comp&&typeof o.comp==='object'){ const s=o.comp.slice; const sl=s&&typeof s==='object'?{l:clamp(s.l|0,0,w-1),t:clamp(s.t|0,0,H-1),r:clamp(s.r|0,0,w-1),b:clamp(s.b|0,0,H-1)}:null;
     if(sl&&(sl.l+sl.r>=w||sl.t+sl.b>=H)){ sl.l=sl.r=Math.floor((w-1)/2); sl.t=sl.b=Math.floor((H-1)/2); }
-    comp={kind:String(o.comp.kind||'custom').slice(0,20),slice:sl,label:String(o.comp.label||'').slice(0,24)}; }
+    comp={kind:String(o.comp.kind||'custom').slice(0,20),slice:sl,label:String(o.comp.label||'').slice(0,24),lock:!!o.comp.lock&&!!sl,fill:o.comp.fill==='tile'?'tile':'stretch',padAuto:o.comp.padAuto!==false};
+    const p=o.comp.pad; comp.pad=p&&typeof p==='object'?fitPad(p,w,H):fitPad(sl||{l:1,t:1,r:1,b:1},w,H);
+    if(o.comp.opts&&typeof o.comp.opts==='object'&&COMPKINDS[comp.kind]) comp.opts=Object.assign(compOpts(comp.kind,o.comp.opts),{w,h:H,base:isHex(o.comp.opts.base||'')?normHex(o.comp.opts.base):'#3d7be0'});
+    if(o.comp.libId) comp.libId=String(o.comp.libId).slice(0,40); }
   const d={name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags}; if(comp) d.comp=comp; return d;
 }
 let saveT=null;

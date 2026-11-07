@@ -139,11 +139,14 @@ figma.ui.onmessage = async function (msg) {
     if (msg.type === 'ready') {
       var autosave = await figma.clientStorage.getAsync('autosave');
       var apiKey = await figma.clientStorage.getAsync('apiKey');
-      post({ type: 'init', autosave: autosave || null, apiKey: apiKey || '' });
+      var library = await figma.clientStorage.getAsync('library');
+      post({ type: 'init', autosave: autosave || null, apiKey: apiKey || '', library: library || null });
       sendSelection();
       if (figma.command === 'edit') await importSelection();
     } else if (msg.type === 'autosave') {
       await figma.clientStorage.setAsync('autosave', msg.data);
+    } else if (msg.type === 'library') {
+      await figma.clientStorage.setAsync('library', msg.data);
     } else if (msg.type === 'set-key') {
       if (msg.key) await figma.clientStorage.setAsync('apiKey', msg.key);
       else await figma.clientStorage.deleteAsync('apiKey');

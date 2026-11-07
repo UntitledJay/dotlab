@@ -83,6 +83,10 @@ addEventListener('message',e=>{ const m=e.data&&e.data.pluginMessage; if(!m) ret
     await page.waitForTimeout(300);
     const cm = await page.evaluate(() => { const m = msgs.filter(x => x.type === 'insert').pop(); return { names: m.frameNames, comp: m.asComponents, frames: m.frames.length, note: /9-slice/.test(m.note) }; });
     assert.deepEqual(cm, { names: ['상태=기본', '상태=호버', '상태=누름', '상태=비활성'], comp: true, frames: 4, note: true });
+    // the component library lives in figma.clientStorage
+    await fr.evaluate(() => libSave(false));
+    const lib = await page.evaluate(() => { const m = msgs.filter(x => x.type === 'library').pop(); return m && JSON.parse(m.data).map(e => e.name); });
+    assert.deepEqual(lib, ['버튼']);
     assert.deepEqual(errs, []);
   } finally { await browser.close(); }
 });

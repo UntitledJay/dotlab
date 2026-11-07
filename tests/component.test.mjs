@@ -50,7 +50,7 @@ test('ui component mode', async () => {
       const v2 = JSON.parse(serialize()); v2.version = 2; delete v2.comp; v2.frames.forEach(f => delete f.name); const old = deserialize(v2);
       return { t, version: o.version, comp: d.comp, names: d.frames.map(f => f.name), oldComp: 'comp' in old, oldNames: old.frames.map(f => f.name || null) };
     });
-    assert.deepEqual(fmt, { t: 4, version: 3, comp: { kind: 'button', slice: { l: 3, t: 4, r: 3, b: 3 }, label: '버튼' }, names: ['기본', '마우스 올림', '상태 5', '누름', '비활성'],
+    assert.deepEqual(fmt, { t: 4, version: 3, comp: { kind: 'button', slice: { l: 3, t: 4, r: 3, b: 3 }, label: '버튼', lock: true, fill: 'stretch', padAuto: true, pad: { l: 4, t: 2, r: 4, b: 3 }, opts: { w: 24, h: 12, radius: 1, border: 1, depth: 2, base: '#3d7be0' } }, names: ['기본', '마우스 올림', '상태 5', '누름', '비활성'],
       oldComp: false, oldNames: [null, null, null, null, null] });
 
     // export: one PNG per state, JSON with the slice, CSS with border-image and state selectors
@@ -79,6 +79,71 @@ test('ui component mode', async () => {
     const conv = await page.evaluate(() => { replaceDoc(sampleDoc()); const before = !!doc.comp; makeComponentFromArt(); const c = doc.comp; setMode('dot');
       return { before, slice: c.slice, names: doc.frames.map(f => f.name), tabHidden: $('#tabComp').hidden, mode: document.documentElement.dataset.mode }; });
     assert.deepEqual(conv, { before: false, slice: { l: 4, t: 4, r: 4, b: 4 }, names: ['기본', '상태 2'], tabHidden: true, mode: 'dot' });
+
+    /* ---------- corners locked, inside editable ---------- */
+    const lock = await page.evaluate(() => {
+      setMode('comp'); startTemplate('button'); ui.layer = 0; ui.frame = 0; const c = () => cel(); const before = c().slice();
+      beginEdit(); for (const [x, y] of [[0, 0], [1, 5], [23, 11], [12, 0], [12, 11]]) plot(c(), x, y, 5); endEdit();
+      const edgesKept = eqArr(c(), before);
+      beginEdit(); plot(c(), 10, 6, 5); endEdit(); const inside = c()[6 * 24 + 10] === 5;
+      // flood fill from the inside cannot leak into the edges either
+      beginEdit(); flood(10, 6, 7, true); endEdit(); const s = doc.comp.slice; let leaked = 0;
+      for (let y = 0; y < 12; y++) for (let x = 0; x < 24; x++) { const out = x < s.l || y < s.t || x >= 24 - s.r || y >= 12 - s.b; if (out && c()[y * 24 + x] !== before[y * 24 + x]) leaked++; }
+      setCompFlag('lock', false); beginEdit(); plot(c(), 12, 0, 5); endEdit(); const unlocked = c()[12] === 5;
+      // the lock only applies in component mode
+      setCompFlag('lock', true); setMode('dot'); beginEdit(); plot(c(), 13, 0, 5); endEdit(); const dotMode = c()[13] === 5; setMode('comp');
+      return { edgesKept, inside, leaked, unlocked, dotMode };
+    });
+    assert.deepEqual(lock, { edgesKept: true, inside: true, leaked: 0, unlocked: true, dotMode: true });
+
+    /* ---------- generation options redraw every state, one undo step ---------- */
+    const gen = await page.evaluate(() => {
+      startTemplate('button'); docChange(() => { doc.comp.label = '확인'; doc.frames[1].name = '호버'; });
+      regenComp({ w: 40, h: 16, radius: 3 });
+      const a = { size: [doc.w, doc.h], states: doc.frames.length, slice: doc.comp.slice, pad: doc.comp.pad, label: doc.comp.label, cornerEmpty: doc.frames[0].cels[1][0] === 0 && doc.frames[0].cels[1][41] === 0 };
+      regenComp({ border: 2 }); const ink = doc.frames[0].cels[1][8 * 40 + 0], ink2 = doc.frames[0].cels[1][8 * 40 + 1];
+      a.border2 = ink === ink2 && ink !== doc.frames[0].cels[1][8 * 40 + 2];
+      undo(); undo(); a.undone = [doc.w, doc.h, doc.comp.opts.radius];
+      // a hand-set content area survives a redraw; 「모양에 맞게」 resets it
+      setPad('l', 7); regenComp({ depth: 0 }); a.keptPad = [doc.comp.pad.l, doc.comp.padAuto];
+      return a;
+    });
+    assert.deepEqual(gen, { size: [40, 16], states: 4, slice: { l: 5, t: 4, r: 5, b: 4 }, pad: { l: 6, t: 4, r: 6, b: 4 }, label: '확인', cornerEmpty: true, border2: true, undone: [24, 12, 1], keptPad: [7, false] });
+
+    /* ---------- tiled middle, content area in CSS ---------- */
+    const tile = await page.evaluate(async () => {
+      startTemplate('panel'); const s = doc.comp.slice;
+      const src = new Uint8ClampedArray(doc.w * doc.h * 4); for (let x = 0; x < doc.w; x++) src[(s.t * doc.w + x) * 4] = x;   // red channel = source x
+      const t = nineSlice(src, doc.w, doc.h, s, 60, 40, 'tile'), st = nineSlice(src, doc.w, doc.h, s, 60, 40, 'stretch');
+      const row = o => Array.from({ length: 60 }, (_, x) => o.data[(s.t * 60 + x) * 4]);
+      const cn = doc.w - s.l - s.r, tr = row(t), sr = row(st);
+      const repeats = tr.slice(s.l, s.l + cn).join() === tr.slice(s.l + cn, s.l + 2 * cn).join(), stretched = sr[s.l] === sr[s.l + 1];
+      setCompFlag('fill', 'tile'); setPad('l', 6); saved.length = 0; await exportComponent(2);
+      const css = saved.find(f => f.filename.endsWith('.css')).data, json = JSON.parse(saved.find(f => f.filename.endsWith('.ui.json')).data);
+      return { repeats, stretched, round: / fill round;/.test(css), padding: css.match(/padding:([^;}]+)/)[1], content: json.content, fill: json.fill };
+    });
+    assert.deepEqual(tile, { repeats: true, stretched: true, round: true, padding: '0px 2px 0px 6px', content: { left: 6, top: 2, right: 4, bottom: 2 }, fill: 'tile' });
+
+    /* ---------- 「내 컴포넌트」 library ---------- */
+    const lib = await page.evaluate(async () => {
+      localStorage.removeItem('dotlab.library'); renderComp();
+      startTemplate('button'); docChange(() => { doc.name = '확인 버튼'; }); libSave(false);
+      const a = { n1: libLoad().length, btn: [...document.querySelectorAll('#pComp .btn.primary')].map(b => b.textContent).includes('덮어 저장') };
+      beginEdit(); plot(cel(), 10, 6, 5); endEdit(); libSave(false); a.n2 = libLoad().length;                               // overwrite
+      const saved1 = deserialize(JSON.parse(libLoad()[0].data)); a.overwrote = saved1.frames[0].cels[1][6 * 24 + 10] === 5;
+      docChange(() => { doc.name = '취소 버튼'; }); libSave(true); a.n3 = libLoad().length; a.names = libLoad().map(e => e.name);
+      a.items = document.querySelectorAll('#pComp .libitem').length;
+      startTemplate('panel'); libOpen(libLoad()[1].id); a.opened = [doc.name, doc.w, doc.comp.libId === libLoad()[1].id, cel()[6 * 24 + 10]];
+      // file round trip: export, then import adds copies with new ids
+      saved.length = 0; libExport(); const file = JSON.parse(saved[0].data); a.file = [saved[0].filename, file.format, file.items.length];
+      libImport(file); a.n4 = libLoad().length; a.unique = new Set(libLoad().map(e => e.id)).size;
+      // opening the library file through 「열기」 imports it too
+      await handleFile(new File([JSON.stringify(file)], 'dotlab-components.json')); a.n5 = libLoad().length;
+      // delete through the dialog
+      libDelete(libLoad()[0].id); [...document.querySelectorAll('#mActions button')].find(b => b.textContent === '삭제').click(); a.n6 = libLoad().length;
+      return a;
+    });
+    assert.deepEqual(lib, { n1: 1, btn: true, n2: 1, overwrote: true, n3: 2, names: ['취소 버튼', '확인 버튼'], items: 2, opened: ['확인 버튼', 24, true, 5], file: ['dotlab-components.json', 'dotlab-library', 2], n4: 4, unique: 4, n5: 6, n6: 5 });
 
     await page.evaluate(() => setMode('comp'));
     await page.setViewportSize({ width: 400, height: 860 }); await page.waitForTimeout(200);

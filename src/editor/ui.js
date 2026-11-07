@@ -269,7 +269,7 @@ function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createO
 async function handleFile(f){
   if(!f) return; const n=f.name.toLowerCase();
   try{
-    if(n.endsWith('.json')){ const nd=deserialize(JSON.parse(await readText(f))); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
+    if(n.endsWith('.json')){ const o=JSON.parse(await readText(f)); if(o&&o.format==='dotlab-library'){ libImport(o); return; } const nd=deserialize(o); replaceDoc(nd); toast('프로젝트를 열었습니다: '+nd.name); }
     else if(/\.(hex|gpl|txt)$/.test(n)){ const cols=parsePaletteText(await readText(f)); if(!cols.length) throw new Error('파일에서 색을 찾지 못했습니다'); presetDialog(cols,`팔레트 가져오기 (${cols.length}색)`); }
     else if(f.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)){ showTab('pConv'); await setConvImage(f); }
     else if(n.endsWith('.aseprite')||n.endsWith('.ase')){ const r=await asepriteToDoc(new Uint8Array(await f.arrayBuffer()),f.name.replace(/\.(aseprite|ase)$/i,'')); replaceDoc(r.doc); toast(`Aseprite 파일을 열었습니다: ${r.doc.w}×${r.doc.h} · 레이어 ${r.doc.layers.length} · 프레임 ${r.doc.frames.length}`+(r.warnings.length?'. '+r.warnings.join(' · '):'')); }

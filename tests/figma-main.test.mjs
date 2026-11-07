@@ -47,7 +47,7 @@ test('figma main thread', async () => {
   const on = figma.ui.onmessage;
   storage.apiKey = 'sk-ant-x';
   await on({ type: 'ready' });
-  assert.deepEqual(plain(sent.find(x => x.type === 'init')), { type: 'init', autosave: null, apiKey: 'sk-ant-x' });
+  assert.deepEqual(plain(sent.find(x => x.type === 'init')), { type: 'init', autosave: null, apiKey: 'sk-ant-x', library: null });
 
   const svg = '<svg xmlns="http://www.w3.org/2000/svg"><g id="a"><path fill="#ff004d" d="M0 0h4v4h-4z"/></g><g id="b"><path fill="#fff" d="M4 0h4v4h-4z"/></g></svg>';
   await on({ type: 'insert', mode: 'vector', name: '물약', w: 64, h: 64, frames: [{ svg, layerNames: ['병', '거품'] }, { svg, layerNames: ['병', '거품'] }], frameNames: ['물약 · 1', '물약 · 2'], project: '{"format":"dotlab"}', replaceId: null, palette: ['#000000', '#ff004d'] });
@@ -73,6 +73,7 @@ test('figma main thread', async () => {
   const rect = m.mkNode('RECTANGLE'); page.appendChild(rect); page.selection = [rect]; await on({ type: 'import-selection' }); assert.equal(sent.at(-1).type, 'import-image');
   page.selection = []; await on({ type: 'import-selection' }); assert.equal(sent.at(-1).type, 'error');
   await on({ type: 'autosave', data: 'X' }); assert.equal(storage.autosave, 'X');
+  await on({ type: 'library', data: '[1]' }); assert.equal(storage.library, '[1]');
   await on({ type: 'set-key', key: '' }); assert.ok(!('apiKey' in storage));
   await on({ type: 'resize', w: 300, h: 900 }); assert.deepEqual(plain(sent.at(-1)), { type: '__resize', w: 720, h: 900 });
 

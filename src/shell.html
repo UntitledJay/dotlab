@@ -7,7 +7,7 @@
 :root{
   --bg:#e8e8eb; --frame:#f6f6f7; --panel:#ffffff; --panel-2:#f2f2f4; --hover:#ebebee; --line:#e6e6ea; --fg:#18181c; --muted:#85858f;
   --accent:#1d1d22; --accent-fg:#ffffff; --accent-soft:#efeff2; --pop:#e0901c; --danger:#d4452b;
-  --raise-a:#ffffff; --raise-b:#f0f0f2; --raise-hi:rgba(255,255,255,.7); --guide:#e5397a; --shadow-sm:0 1px 2px rgba(16,16,24,.07),0 0 0 1px rgba(16,16,24,.05); --shadow:0 1px 2px rgba(16,16,24,.04),0 6px 20px rgba(16,16,24,.06); --shadow-lg:0 2px 6px rgba(16,16,24,.06),0 24px 60px rgba(16,16,24,.16);
+  --raise-a:#ffffff; --raise-b:#f0f0f2; --raise-hi:rgba(255,255,255,.7); --guide:#e5397a; --guide-2:#1a8fd6; --shadow-sm:0 1px 2px rgba(16,16,24,.07),0 0 0 1px rgba(16,16,24,.05); --shadow:0 1px 2px rgba(16,16,24,.04),0 6px 20px rgba(16,16,24,.06); --shadow-lg:0 2px 6px rgba(16,16,24,.06),0 24px 60px rgba(16,16,24,.16);
   --stage:#ececef; --check-a:#ffffff; --check-b:#ececf0; --grid:rgba(20,20,30,.08); --grid-major:rgba(20,20,30,.2); --ants:#18181c; --frame-edge:rgba(20,20,30,.22);
   --f-ui:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-pixel:"Silkscreen","JetBrains Mono",ui-monospace,monospace;
@@ -16,13 +16,13 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
   --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
-  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
+  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --guide-2:#5cc4ff; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
   --stage:#0f0f12; --check-a:#26262b; --check-b:#1f1f24; --grid:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17); --ants:#ffffff; --frame-edge:rgba(255,255,255,.22);
   color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
   --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
-  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
+  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --guide-2:#5cc4ff; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
   --stage:#0f0f12; --check-a:#26262b; --check-b:#1f1f24; --grid:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17); --ants:#ffffff; --frame-edge:rgba(255,255,255,.22);
   color-scheme:dark }
 
@@ -126,6 +126,22 @@ html[data-mode="comp"] .tab[data-tab="pConv"]{display:none}
 .compkind canvas{width:44px;height:30px;image-rendering:pixelated;object-fit:contain;background:none}
 .compkind span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .row2.sl label{gap:4px}
+.csec{display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.csec:last-child{border-bottom:0}
+.rgs{display:grid;grid-template-columns:1fr;gap:4px}
+.rg{display:grid;grid-template-columns:84px 1fr 26px;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.rg .rv{text-align:right;color:var(--fg)}
+.liblist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.liblist .empty{grid-column:1/-1;border:1px dashed var(--line);border-radius:12px;padding:10px}
+.libitem{position:relative;display:flex;border-radius:12px;background:var(--panel-2);min-width:0}
+.libitem.on{background:var(--panel);box-shadow:0 0 0 1.5px var(--fg)}
+.libopen{flex:1;display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;border:0;background:none;padding:6px 26px 6px 6px;cursor:pointer;min-width:0;border-radius:12px}
+.libopen:hover{background:var(--hover)}
+.libopen canvas{grid-row:1/3;width:40px;height:28px;image-rendering:pixelated;object-fit:contain;background:none}
+.libopen .ln{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libopen .lm{font-size:10.5px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libitem .mini{position:absolute;right:2px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.libitem .mini:hover{color:var(--danger)}
 .compprev{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:10px;border-radius:14px;background:var(--panel-2)}
 .compprev figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
 .compprev canvas{image-rendering:pixelated;border-radius:4px}
