@@ -1,0 +1,20 @@
+{
+  "name": "dotlab",
+  "version": "0.3.0",
+  "private": true,
+  "description": "도트랩 — 직접 찍고 AI로 생성하는 픽셀아트 에디터 (웹 + Figma 플러그인)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:web": "node scripts/build.mjs web",
+    "build:figma": "node scripts/build.mjs figma",
+    "test": "node scripts/build.mjs && node --test --test-concurrency=1 tests/editor.test.mjs tests/grid-detect.test.mjs tests/figma-main.test.mjs tests/figma-ui.test.mjs",
+    "serve": "npx --yes http-server dist -p 5173 -c-1"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

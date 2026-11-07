@@ -1,0 +1,16 @@
+{
+  "name": "도트랩 DotLab",
+  "id": "dotlab-pixel-editor-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://api.anthropic.com"],
+    "reasoning": "AI 도트 생성 기능이 사용자가 입력한 Anthropic API 키로 Claude API를 호출합니다."
+  },
+  "relaunchButtons": [
+    { "command": "edit", "name": "도트랩에서 편집" }
+  ]
+}

@@ -1,0 +1,9 @@
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+.keybox{border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+.keybox summary{cursor:pointer;font-weight:500}
+.keybox[open]{display:flex;flex-direction:column;gap:6px;padding-bottom:10px}
+.keybox input{font-family:var(--f-mono)}
+#fgSel{color:var(--fg)}
+#resizer{position:fixed;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:70;background:linear-gradient(135deg,transparent 0 55%,var(--muted) 55% 62%,transparent 62% 72%,var(--muted) 72% 79%,transparent 79%)}
