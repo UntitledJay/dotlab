@@ -53,7 +53,7 @@ function renderTimeline(){
   doc.frames.forEach((f,i)=>{ const cv=h('canvas',{class:'checker'}); frameThumbs.push(cv);
     const linked=linkedWithPrev(i,lid), tag=doc.tags.find(t=>i>=t.from&&i<=t.to);
     list.append(h('button',{class:'fcell'+(i===ui.frame?' on':'')+(linked?' linked':''),style:tag?`--tc:${tag.color}`:null,'data-tag':tag?'1':null,
-      title:`프레임 ${i+1} · ${f.dur}ms`+(linked?' · 「'+activeLayer().name+'」 셀이 앞 프레임과 링크됨':'')+(tag?` · 태그 「${tag.name}」`:''),onclick:()=>gotoFrame(i)},cv,h('span',{class:'fn',text:String(i+1)}))); });
+      title:`프레임 ${i+1} · ${f.dur}ms`+(linked?' · 「'+activeLayer().name+'」 셀이 앞 프레임과 링크됨':'')+(tag?` · 태그 「${tag.name}」`:''),onclick:()=>gotoFrame(i),ondblclick:()=>{ if(ui.mode==='comp'&&doc.comp) renameState(i); }},cv,ui.mode==='comp'&&doc.comp?h('span',{class:'fn st',text:stateName(i),title:'더블클릭해 상태 이름 바꾸기'}):h('span',{class:'fn',text:String(i+1)}))); });
   const row=$('#tagRow'); row.textContent='';
   doc.tags.forEach((t,k)=>row.append(h('button',{class:'tagchip',style:`--tc:${t.color}`,title:'태그 편집',onclick:()=>tagDialog(k)},h('i'),`${t.name} · ${t.from+1}–${t.to+1}`,t.dir!=='forward'?h('span',{class:'tdir',text:{reverse:'역방향',pingpong:'핑퐁',pingpong_reverse:'역방향 핑퐁'}[t.dir]}):null)));
   row.hidden=!doc.tags.length;
@@ -62,7 +62,7 @@ function renderTimeline(){
   $('#frUnlink').disabled=!isLinked(ui.frame,lid);
   $('#frDur').value=doc.frames[ui.frame].dur;
   const total=doc.frames.reduce((s,f)=>s+f.dur,0);
-  $('#frInfo').textContent=`${ui.frame+1} / ${doc.frames.length} 프레임 · 전체 ${(total/1000).toFixed(2)}초`;
+  $('#frInfo').textContent=ui.mode==='comp'&&doc.comp?`상태 ${ui.frame+1} / ${doc.frames.length} · 「${stateName(ui.frame)}」 · 더블클릭해 이름 바꾸기`:`${ui.frame+1} / ${doc.frames.length} 프레임 · 전체 ${(total/1000).toFixed(2)}초`;
   markPlaying(); updateThumbs();
 }
 function chip(label,on,onclick,title){ return h('button',{class:'chip','aria-pressed':String(!!on),onclick,title}); }
@@ -98,7 +98,7 @@ function updStatus(p){
 }
 function toggleBtn(id,key,after){ const b=$(id); b.setAttribute('aria-pressed',String(!!ui[key])); b.onclick=()=>{ ui[key]=!ui[key]; b.setAttribute('aria-pressed',String(ui[key])); after&&after(); requestDraw(); }; }
 function refreshAll(){
-  updPal(); invalidate(); renderColors(); renderPalette(); renderLayers(); renderTimeline(); renderToolOpts(); renderAISize(); renderEditHint(); renderCands();
+  updPal(); invalidate(); renderColors(); renderPalette(); renderLayers(); renderTimeline(); renderToolOpts(); renderAISize(); renderEditHint(); renderCands(); renderComp();
   $('#docName').value=doc.name; updStatus(); updHistBtns(); requestDraw();
 }
 
@@ -243,16 +243,17 @@ function buildGIF(s,seq){
 }
 function exportGIF(s,tagIdx){ const t=tagIdx>=0?doc.tags[tagIdx]:null; const seq=t?playSequence({from:t.from,to:Math.min(t.to,doc.frames.length-1),dir:t.dir}):null; offerFiles([{filename:`${base()}${t?'-'+t.name:''}@${s}x.gif`,data:new Blob([buildGIF(s,seq)],{type:'image/gif'})}]); }
 function exportPalette(){ offerFiles([{filename:base()+'-palette.txt',data:doc.palette.map(c=>c.slice(1)).join('\n')+'\n'}]); }
-function exportDialog(){
+function exportDialog(pre){
   const maxS=Math.max(1,Math.floor(2048/Math.max(doc.w,doc.h)));
   const sc=h('select',{'aria-label':'배율'},[1,2,4,8,16,32].filter(s=>s<=Math.max(1,maxS)||s===1).map(s=>h('option',{value:s,text:`${s}× (${doc.w*s}×${doc.h*s})`,selected:s===Math.min(8,maxS)})));
-  const anim=doc.frames.length>1;
+  const anim=doc.frames.length>1, compFirst=!!doc.comp&&(pre==='component'||ui.mode==='comp');
   const gr=h('select',{'aria-label':'GIF 범위'},h('option',{value:-1,text:'전체 프레임'}),doc.tags.map((t,k)=>h('option',{value:k,text:`태그 「${t.name}」 (${t.from+1}–${t.to+1})`,selected:k===ui.playTag})));
   const opt=(v,t,d,c)=>h('label',{class:'opt'},h('input',{type:'radio',name:'ex',value:v,checked:!!c}),h('div',null,h('b',{text:t}),h('span',{text:d})));
   modal({title:'내보내기',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},
       h('div',{class:'optlist'},
-        opt('png','PNG 이미지',`현재 프레임(${ui.frame+1}번)을 보간 없이 확대해 저장합니다. 투명 배경을 유지합니다.`,!anim),
-        opt('gif','GIF 애니메이션',`프레임 ${doc.frames.length}개와 프레임별 지속시간을 담아 반복 재생합니다.`,anim),
+        doc.comp?opt('component','UI 컴포넌트 (상태별 PNG + 9-slice JSON + CSS)',`상태 ${doc.frames.length}개를 각각 PNG로, 늘어날 여백(9-slice)을 게임 엔진용 JSON과 CSS border-image로 저장합니다. 호버·누름·비활성 같은 상태 이름은 CSS 선택자로 이어집니다.`,compFirst):null,
+        opt('png','PNG 이미지',`현재 프레임(${ui.frame+1}번)을 보간 없이 확대해 저장합니다. 투명 배경을 유지합니다.`,!anim&&!compFirst),
+        opt('gif','GIF 애니메이션',`프레임 ${doc.frames.length}개와 프레임별 지속시간을 담아 반복 재생합니다.`,anim&&!compFirst),
         opt('sheet','스프라이트 시트 + JSON','모든 프레임을 한 장에 배치하고, 게임 엔진에서 읽는 프레임 좌표와 태그 JSON(Aseprite 형식)을 함께 저장합니다.'),
         opt('aseprite','Aseprite 파일 (.aseprite)','레이어·프레임·태그·링크 셀·팔레트를 그대로 담아 Aseprite에서 이어서 작업할 수 있습니다. 배율은 적용되지 않습니다.'),
         opt('timelapse','타임랩스 GIF',TL.snaps.length>2?`이 작업을 연 뒤부터 기록한 과정 ${TL.snaps.length}단계를 짧은 GIF로 만듭니다. AI가 만든 단계에는 왼쪽 위에 AI 표시가 붙습니다.`:'아직 기록된 과정이 거의 없습니다. 그림을 그리면 단계마다 자동으로 기록됩니다.'),
@@ -261,7 +262,7 @@ function exportDialog(){
       h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc),
       doc.tags.length?h('label',{class:'row2',style:'color:var(--muted)'},'GIF 범위 ',gr):null),
     actions:[{label:'취소'},{label:'내보내기',primary:true,onClick:()=>{ const v=$('input[name=ex]:checked').value, s=+sc.value;
-      if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s,+gr.value); else if(v==='sheet') exportSheet(s); else if(v==='aseprite') exportAseprite(); else if(v==='timelapse') exportTimelapse(s); else if(v==='project') saveProject(); else exportPalette(); }}]});
+      if(v==='component') exportComponent(s); else if(v==='png') exportPNG(s); else if(v==='gif') exportGIF(s,+gr.value); else if(v==='sheet') exportSheet(s); else if(v==='aseprite') exportAseprite(); else if(v==='timelapse') exportTimelapse(s); else if(v==='project') saveProject(); else exportPalette(); }}]});
 }
 function readText(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(r.error); r.readAsText(f); }); }
 function loadImageFile(f){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(f); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('이미지를 읽을 수 없습니다')); im.src=url; }); }

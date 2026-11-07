@@ -80,7 +80,22 @@ async function insert(m) {
     nodes.push(node);
   }
   var top;
-  if (nodes.length === 1) top = nodes[0];
+  if (m.asComponents) {
+    // UI component: every state becomes a variant of one component set ("상태=기본", "상태=호버", ...)
+    var comps = [];
+    for (var k = 0; k < nodes.length; k++) comps.push(figma.createComponentFromNode(nodes[k]));
+    if (comps.length === 1) { top = comps[0]; top.name = m.name; }
+    else {
+      top = figma.combineAsVariants(comps, figma.currentPage);
+      top.name = m.name;
+      top.layoutMode = 'HORIZONTAL';
+      top.primaryAxisSizingMode = 'AUTO';
+      top.counterAxisSizingMode = 'AUTO';
+      top.itemSpacing = 16;
+      top.paddingLeft = 16; top.paddingRight = 16; top.paddingTop = 16; top.paddingBottom = 16;
+    }
+    if (m.note) top.description = m.note;
+  } else if (nodes.length === 1) top = nodes[0];
   else {
     top = figma.createFrame();
     top.name = m.name;

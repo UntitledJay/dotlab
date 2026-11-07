@@ -96,25 +96,27 @@ function figmaInsertDialog(){
   const sc=h('select',{'aria-label':'배율'},[1,2,4,8,16,32].filter(s=>s<=maxS).map(s=>h('option',{value:s,text:`${s}× (${doc.w*s}×${doc.h*s})`,selected:s===Math.min(maxS,Math.max(1,Math.round(256/Math.max(doc.w,doc.h))))})));
   const opt=(name,v,t,d,c)=>h('label',{class:'opt'},h('input',{type:'radio',name,value:v,checked:!!c}),h('div',null,h('b',{text:t}),h('span',{text:d})));
   const anim=doc.frames.length>1;
-  const styles=h('input',{type:'checkbox'}); const repl=h('input',{type:'checkbox',checked:!!FG.linkedId});
+  const styles=h('input',{type:'checkbox'}); const repl=h('input',{type:'checkbox',checked:!!FG.linkedId}); const asComp=h('input',{type:'checkbox',checked:!!doc.comp});
   modal({title:'Figma에 넣기',body:h('div',{style:'display:flex;flex-direction:column;gap:10px'},
       h('div',{class:'optlist'},
         opt('fm','vector','벡터 (편집 가능)','레이어마다 그룹, 색마다 도형 하나로 만듭니다. Figma에서 색을 바꾸거나 다른 크기로 키워도 선명합니다.',true),
         opt('fm','image','PNG 이미지','픽셀을 그대로 담은 이미지 한 장입니다. 레이어가 가볍고 빠릅니다.')),
       anim?h('div',{class:'optlist'},opt('ff','cur','현재 프레임만',`${ui.frame+1}번 프레임 하나를 넣습니다.`,true),opt('ff','all','모든 프레임',`프레임 ${doc.frames.length}개를 가로로 나란히 담은 프레임으로 넣습니다.`)):null,
       h('label',{class:'row2',style:'color:var(--muted)'},'배율 ',sc),
+      doc.comp?h('label',{class:'row2 chk',title:'상태마다 변형(Variant)을 가진 컴포넌트 세트로 넣습니다. 9-slice 여백은 컴포넌트 설명에 적힙니다.'},asComp,`컴포넌트로 넣기 (상태 ${doc.frames.length}개 → 변형)`):null,
       h('label',{class:'row2 chk'},styles,'팔레트를 Figma 색 스타일로 저장'),
       FG.linkedId?h('label',{class:'row2 chk'},repl,`연결된 개체 「${FG.linkedName||'도트랩'}」를 이 결과로 교체`):null,
       h('p',{class:'hint',text:'넣은 개체에는 도트랩 데이터가 함께 저장됩니다. 나중에 선택하고 「선택 편집」을 누르면 레이어와 프레임 그대로 다시 열립니다.'})),
-    actions:[{label:'취소'},{label:'넣기',primary:true,onClick:()=>figmaInsert({mode:$('input[name=fm]:checked').value,all:anim&&$('input[name=ff]:checked').value==='all',scale:+sc.value,styles:styles.checked,replace:repl.checked&&!!FG.linkedId})}]});
+    actions:[{label:'취소'},{label:'넣기',primary:true,onClick:()=>figmaInsert({mode:$('input[name=fm]:checked').value,asComponents:!!doc.comp&&asComp.checked,all:anim&&$('input[name=ff]:checked').value==='all',scale:+sc.value,styles:styles.checked,replace:repl.checked&&!!FG.linkedId})}]});
 }
 async function figmaInsert(o){
-  const list=o.all?doc.frames.map((_,i)=>i):[ui.frame]; const frames=[];
+  const comp=!!o.asComponents&&!!doc.comp; const list=o.all||comp?doc.frames.map((_,i)=>i):[ui.frame]; const frames=[];
   for(const fi of list){
     if(o.mode==='vector') frames.push(frameSVG(fi,o.scale));
     else { const blob=await toBlob(scaledFrame(fi,o.scale)); frames.push({png:new Uint8Array(await blob.arrayBuffer())}); }
   }
-  toMain({type:'insert',mode:o.mode,name:doc.name,w:doc.w*o.scale,h:doc.h*o.scale,frames,frameNames:list.map(i=>list.length>1?`${doc.name} · ${i+1}`:doc.name),project:serialize(),replaceId:o.replace?FG.linkedId:null,palette:o.styles?doc.palette.slice():null});
+  toMain({type:'insert',mode:o.mode,name:doc.name,w:doc.w*o.scale,h:doc.h*o.scale,frames,frameNames:list.map(i=>comp?`상태=${stateName(i)}`:list.length>1?`${doc.name} · ${i+1}`:doc.name),asComponents:comp,
+    note:comp?compNote():null,project:serialize(),replaceId:o.replace?FG.linkedId:null,palette:o.styles?doc.palette.slice():null});
   toast('Figma에 넣는 중…');
 }
 function renderFgSel(){

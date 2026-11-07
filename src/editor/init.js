@@ -93,7 +93,9 @@ function init(){
   window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; if(!drag) view.style.cursor=ui.tool==='hand'?'grab':'crosshair'; } });
   window.addEventListener('blur',()=>{ spaceDown=false; });
 
+  $$('#modeSwitch .chip').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
   renderPlayBtn(); setTool('pencil'); refreshAll(); resetTL(); renderXfer();
+  let mode='dot'; try{ mode=localStorage.getItem('dotlab.mode')||'dot'; }catch(e){} setMode(mode);
   new ResizeObserver(resizeView).observe(stage); resizeView();
   initCapabilities();
 }

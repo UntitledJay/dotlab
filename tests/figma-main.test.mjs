@@ -29,7 +29,9 @@ function makeFigma() {
     on(ev, fn) { this['on_' + ev] = fn; },
     clientStorage: { async getAsync(k) { return storage[k]; }, async setAsync(k, v) { storage[k] = v; }, async deleteAsync(k) { delete storage[k]; } },
     createNodeFromSvg(svg) { const f = mkNode('FRAME'); for (let i = 0; i < (svg.match(/<g /g) || []).length; i++) { const g = mkNode('GROUP'); g.appendChild(mkNode('VECTOR', { fills: [{ type: 'SOLID', color: { r: 1, g: 0, b: .3 } }] })); f.appendChild(g); } return f; },
-    createFrame() { return mkNode('FRAME'); }, createRectangle() { return mkNode('RECTANGLE'); }, createImage(b) { return { hash: 'h' + b.length }; },
+    createFrame() { return mkNode('FRAME'); },
+    createComponentFromNode(n) { const c = mkNode('COMPONENT'); c.name = n.name; page.appendChild(c); c.appendChild(n); return c; },
+    combineAsVariants(nodes, parent) { const s = mkNode('COMPONENT_SET'); parent.appendChild(s); for (const n of nodes) s.appendChild(n); return s; }, createRectangle() { return mkNode('RECTANGLE'); }, createImage(b) { return { hash: 'h' + b.length }; },
     async getNodeByIdAsync(id) { return [page, ...page.findAll(() => true)].find(n => n.id === id) || null; },
     viewport: { center: { x: 500, y: 400 }, scrollAndZoomIntoView() {} },
     async getLocalPaintStylesAsync() { return styles; },
@@ -73,4 +75,14 @@ test('figma main thread', async () => {
   await on({ type: 'autosave', data: 'X' }); assert.equal(storage.autosave, 'X');
   await on({ type: 'set-key', key: '' }); assert.ok(!('apiKey' in storage));
   await on({ type: 'resize', w: 300, h: 900 }); assert.deepEqual(plain(sent.at(-1)), { type: '__resize', w: 720, h: 900 });
+
+  // UI component: states become variants of one component set, the 9-slice note goes into the description
+  await on({ type: 'insert', mode: 'vector', name: '버튼', w: 48, h: 24, frames: [{ svg, layerNames: ['버튼'] }, { svg, layerNames: ['버튼'] }], frameNames: ['상태=기본', '상태=호버'], asComponents: true, note: '9-slice 여백', project: '{"c":1}', palette: null });
+  const set = page.children.find(n => n.id === sent.filter(x => x.type === 'inserted').pop().nodeId);
+  assert.equal(set.type, 'COMPONENT_SET'); assert.equal(set.name, '버튼'); assert.equal(set.layoutMode, 'HORIZONTAL');
+  assert.deepEqual(set.children.map(c => [c.type, c.name]), [['COMPONENT', '상태=기본'], ['COMPONENT', '상태=호버']]);
+  assert.equal(set.description, '9-slice 여백'); assert.equal(set.getPluginData('dotlab'), '{"c":1}');
+  await on({ type: 'insert', mode: 'image', name: '패널', w: 48, h: 40, frames: [{ png: new Uint8Array(10) }], frameNames: ['상태=기본'], asComponents: true, note: 'n', project: '{}', palette: null });
+  const one = page.children.find(n => n.id === sent.filter(x => x.type === 'inserted').pop().nodeId);
+  assert.deepEqual([one.type, one.name, one.description], ['COMPONENT', '패널', 'n'], 'a single state is a plain component');
 });

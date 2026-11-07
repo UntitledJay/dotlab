@@ -84,7 +84,7 @@ const PRESETS={
 /* ================= state ================= */
 let doc=null, nextId=1, palRGB=[];
 const ui={tool:'pencil',primary:1,secondary:0,brush:1,pixelPerfect:true,mirrorX:false,mirrorY:false,dither:false,shapeFill:false,
-  zoom:8,panX:0,panY:0,grid:true,tile:false,onion:false,layer:0,frame:0,sel:null,selEdges:[],playing:false,playFrame:0,playTag:-1,playSeq:[],playPos:0,hover:null,lastPt:null,fitted:false};
+  zoom:8,panX:0,panY:0,grid:true,tile:false,onion:false,layer:0,frame:0,sel:null,selEdges:[],playing:false,playFrame:0,playTag:-1,playSeq:[],playPos:0,hover:null,lastPt:null,fitted:false,mode:'dot'};
 const ref={img:null,opacity:.4,visible:true,above:false};
 const TOOLDEFS=[
   {id:'pencil',name:'연필',key:'B',hint:'Shift+클릭: 마지막 점에서 직선 · 오른쪽 버튼: 보조 색상'},
@@ -159,7 +159,7 @@ function tinted(fi,color){
 /* ================= view ================= */
 const view=$('#view'), vctx=view.getContext('2d'), stage=$('#stage');
 let vw=1,vh=1,dpr=1,drawQueued=false,tok={},checkPat=null;
-function readTokens(){ const cs=getComputedStyle(document.documentElement); for(const k of ['check-a','check-b','grid','grid-major','ants','frame-edge','stage']) tok[k]=cs.getPropertyValue('--'+k).trim(); checkPat=null; }
+function readTokens(){ const cs=getComputedStyle(document.documentElement); for(const k of ['check-a','check-b','grid','grid-major','ants','frame-edge','stage','guide']) tok[k]=cs.getPropertyValue('--'+k).trim(); checkPat=null; }
 function getCheck(){
   if(!checkPat){ const c=document.createElement('canvas'); c.width=c.height=16; const x=c.getContext('2d'); x.fillStyle=tok['check-a']; x.fillRect(0,0,16,16); x.fillStyle=tok['check-b']; x.fillRect(0,0,8,8); x.fillRect(8,8,8,8); checkPat=vctx.createPattern(c,'repeat'); }
   return checkPat;
@@ -203,6 +203,7 @@ function draw(){
     ctx.beginPath(); for(let x=8;x<doc.w;x+=8){ ctx.moveTo(ox+x*z+lw/2,oy); ctx.lineTo(ox+x*z+lw/2,oy+H);} for(let y=8;y<doc.h;y+=8){ ctx.moveTo(ox,oy+y*z+lw/2); ctx.lineTo(ox+W,oy+y*z+lw/2);} ctx.strokeStyle=tok['grid-major']; ctx.stroke();
   }
   ctx.lineWidth=1; ctx.strokeStyle=tok['frame-edge']; ctx.strokeRect(ox-.5,oy-.5,W+1,H+1);
+  if(!ui.playing) drawCompGuides(ctx,ox,oy,W,H);
   if(ui.sel && ui.selEdges.length){
     ctx.beginPath(); for(const [x1,y1,x2,y2] of ui.selEdges){ ctx.moveTo(ox+x1*z+.5,oy+y1*z+.5); ctx.lineTo(ox+x2*z+.5,oy+y2*z+.5); }
     ctx.setLineDash([4,4]); ctx.lineDashOffset=-antsPhase; ctx.strokeStyle='#000'; ctx.stroke(); ctx.lineDashOffset=-antsPhase+4; ctx.strokeStyle='#fff'; ctx.stroke(); ctx.setLineDash([]);
@@ -410,12 +411,14 @@ view.addEventListener('pointerdown',e=>{
   stopPlay();
   if(e.button===1||spaceDown||ui.tool==='hand'){ e.preventDefault(); drag={pan:true,sx:e.clientX,sy:e.clientY,px:ui.panX,py:ui.panY}; view.style.cursor='grabbing'; return; }
   if(e.button!==0&&e.button!==2) return;
+  if(ui.mode==='comp'&&guideDown(e)) return;   // 9-slice guides come before the tool
   const p=docPos(e); drag={tool:ui.tool,button:e.button,start:p,last:p,pts:[]};
   TOOLS[ui.tool].down?.(p,e);
 });
 view.addEventListener('pointermove',e=>{
   if(pointers.has(e.pointerId)) pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(gesture){ moveGesture(); return; }
+  if(guideMove(e)) return;
   const p=docPos(e); const prevH=ui.hover; ui.hover=p; updStatus(p);
   if(!drag){ if(!prevH||prevH.x!==p.x||prevH.y!==p.y) requestDraw(); return; }
   if(drag.pan){ ui.userView=true; ui.panX=Math.round(drag.px+e.clientX-drag.sx); ui.panY=Math.round(drag.py+e.clientY-drag.sy); requestDraw(); return; }
@@ -425,6 +428,7 @@ view.addEventListener('pointermove',e=>{
 function endPointer(e){
   pointers.delete(e.pointerId);
   if(gesture){ if(pointers.size<2) gesture=null; return; }
+  if(guideUp()) return;
   if(!drag) return;
   if(drag.pan){ drag=null; view.style.cursor=(ui.tool==='hand'||spaceDown)?'grab':'crosshair'; return; }
   TOOLS[drag.tool].up?.(docPos(e),e); drag=null;
@@ -469,7 +473,7 @@ function shiftTags(at,delta){
   doc.tags=doc.tags.filter(t=>t.from>=0&&t.to>=t.from);
 }
 // mode: 'empty' | 'dup' (independent copy) | 'link' (shares every cel with the current frame)
-function addFrame(mode){ docChange(()=>{ const cur=doc.frames[ui.frame]; const cels={}; for(const L of doc.layers) cels[L.id]=mode==='link'?cur.cels[L.id]:mode==='dup'?cur.cels[L.id].slice():new Uint8Array(doc.w*doc.h); shiftTags(ui.frame+1,1); for(const t of doc.tags) if(t.from<=ui.frame&&t.to===ui.frame) t.to++; doc.frames.splice(ui.frame+1,0,{dur:cur.dur,cels}); ui.frame++; }); }
+function addFrame(mode){ docChange(()=>{ const cur=doc.frames[ui.frame]; const cels={}; for(const L of doc.layers) cels[L.id]=mode==='link'?cur.cels[L.id]:mode==='dup'?cur.cels[L.id].slice():new Uint8Array(doc.w*doc.h); shiftTags(ui.frame+1,1); for(const t of doc.tags) if(t.from<=ui.frame&&t.to===ui.frame) t.to++; const fr={dur:cur.dur,cels}; if(doc.comp) fr.name=mode==='empty'?`상태 ${doc.frames.length+1}`:`${stateName(ui.frame)} 복사`; doc.frames.splice(ui.frame+1,0,fr); ui.frame++; }); }
 function isLinked(fi,id){ const c=doc.frames[fi].cels[id]; return doc.frames.some((g,i)=>i!==fi&&g.cels[id]===c); }
 function linkedWithPrev(fi,id){ return fi>0&&doc.frames[fi].cels[id]===doc.frames[fi-1].cels[id]; }
 function unlinkCel(){
@@ -536,10 +540,12 @@ function rle(u){ const out=[]; let i=0; while(i<u.length){ const v=u[i]; let n=1
 function unrle(s,n){ const b=b64dec(s); const u=new Uint8Array(n); let p=0; for(let i=0;i+1<b.length&&p<n;i+=2){ u.fill(b[i],p,Math.min(n,p+b[i+1])); p+=b[i+1]; } return u; }
 function serialize(){
   const celOut=(fi,L)=>{ const c=doc.frames[fi].cels[L.id]; for(let k=0;k<fi;k++) if(doc.frames[k].cels[L.id]===c) return {link:k}; return rle(c); };
-  return JSON.stringify({format:'dotlab',version:2,name:doc.name,w:doc.w,h:doc.h,palette:doc.palette,
+  // version 3: optional frame names (component states) and doc.comp
+  return JSON.stringify({format:'dotlab',version:3,name:doc.name,w:doc.w,h:doc.h,palette:doc.palette,
     layers:doc.layers.map(L=>({id:L.id,name:L.name,visible:L.visible,opacity:L.opacity,locked:L.locked,alphaLock:L.alphaLock,outline:L.outline})),
-    frames:doc.frames.map((f,fi)=>({dur:f.dur,cels:Object.fromEntries(doc.layers.map(L=>[L.id,celOut(fi,L)]))})),
-    tags:doc.tags.map(t=>({name:t.name,from:t.from,to:t.to,dir:t.dir,color:t.color}))});
+    frames:doc.frames.map((f,fi)=>Object.assign({dur:f.dur,cels:Object.fromEntries(doc.layers.map(L=>[L.id,celOut(fi,L)]))},f.name?{name:f.name}:{})),
+    tags:doc.tags.map(t=>({name:t.name,from:t.from,to:t.to,dir:t.dir,color:t.color})),
+    comp:doc.comp?{kind:doc.comp.kind,slice:doc.comp.slice,label:doc.comp.label}:undefined});
 }
 function deserialize(o){
   if(!o||o.format!=='dotlab') throw new Error('도트랩 프로젝트 파일이 아닙니다');
@@ -553,11 +559,14 @@ function deserialize(o){
       if(v&&typeof v==='object'&&Number.isInteger(v.link)&&v.link>=0&&v.link<fi) c=frames[v.link].cels[L.id];
       else { try{ c=typeof v==='string'?unrle(v,w*H):new Uint8Array(w*H); }catch(e){ c=new Uint8Array(w*H); } for(let i=0;i<c.length;i++) if(c[i]>palette.length) c[i]=0; }
       cels[L.id]=c; }
-    frames.push({dur:clamp(f.dur|0||120,20,5000),cels}); });
+    const fr={dur:clamp(f.dur|0||120,20,5000),cels}; if(f.name) fr.name=String(f.name).slice(0,30); frames.push(fr); });
   if(!frames.length){ const cels={}; for(const L of layers) cels[L.id]=new Uint8Array(w*H); frames.push({dur:120,cels}); }
   const last=frames.length-1;
   const tags=(Array.isArray(o.tags)?o.tags:[]).map(t=>({name:String(t.name||'태그').slice(0,40),from:clamp(t.from|0,0,last),to:clamp(t.to|0,0,last),dir:TAGDIRS.includes(t.dir)?t.dir:'forward',color:isHex(t.color)?normHex(t.color):TAGCOLORS[0]})).filter(t=>t.to>=t.from);
-  return {name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags};
+  let comp=null; if(o.comp&&typeof o.comp==='object'){ const s=o.comp.slice; const sl=s&&typeof s==='object'?{l:clamp(s.l|0,0,w-1),t:clamp(s.t|0,0,H-1),r:clamp(s.r|0,0,w-1),b:clamp(s.b|0,0,H-1)}:null;
+    if(sl&&(sl.l+sl.r>=w||sl.t+sl.b>=H)){ sl.l=sl.r=Math.floor((w-1)/2); sl.t=sl.b=Math.floor((H-1)/2); }
+    comp={kind:String(o.comp.kind||'custom').slice(0,20),slice:sl,label:String(o.comp.label||'').slice(0,24)}; }
+  const d={name:String(o.name||'작품'),w,h:H,palette,layers,frames,tags}; if(comp) d.comp=comp; return d;
 }
 let saveT=null;
 function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('dotlab.autosave',serialize()); }catch(e){} },700); }

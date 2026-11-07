@@ -77,6 +77,12 @@ addEventListener('message',e=>{ const m=e.data&&e.data.pluginMessage; if(!m) ret
     await fr.evaluate(() => aiGenerate());
     await page.waitForTimeout(800);
     assert.match(await fr.evaluate(() => $('#aiStatus').textContent), /API 키가 올바르지 않습니다/);
+
+    // UI component mode: every state goes to Figma as a variant
+    await fr.evaluate(() => { setMode('comp'); startTemplate('button'); figmaInsert({ mode: 'vector', scale: 2, asComponents: true }); });
+    await page.waitForTimeout(300);
+    const cm = await page.evaluate(() => { const m = msgs.filter(x => x.type === 'insert').pop(); return { names: m.frameNames, comp: m.asComponents, frames: m.frames.length, note: /9-slice/.test(m.note) }; });
+    assert.deepEqual(cm, { names: ['상태=기본', '상태=호버', '상태=누름', '상태=비활성'], comp: true, frames: 4, note: true });
     assert.deepEqual(errs, []);
   } finally { await browser.close(); }
 });

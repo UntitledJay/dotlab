@@ -13,7 +13,7 @@
 npm install                 # playwright (테스트용)
 npx playwright install chromium   # 처음 한 번
 npm run build               # dist/web, dist/figma 둘 다
-npm test                    # 빌드 후 테스트 4개 실행
+npm test                    # 빌드 후 테스트 6개 실행
 ```
 
 - Chromium을 따로 설치한 환경이면 `CHROMIUM_PATH=/path/to/chrome npm test`로 실행합니다.
@@ -30,6 +30,7 @@ src/editor/aseprite.js  .aseprite 읽기(인덱스·RGBA·그레이스케일)·�
 src/editor/timelapse.js 작업 과정 기록과 타임랩스 GIF. AI 결과를 넣는 곳은 그 직전에 `TL.mark='ai'`를 두어 그 단계에 AI 표시가 붙게 합니다
 src/editor/conv.js      이미지 → 도트 (격자 자동 감지, 색 정리, 배경 제거)
 src/editor/recolor.js   색감 옮기기 (밝기 순서대로 바꾸기 / Lab 색공간에서 분위기만 맞추기)
+src/editor/comp.js      UI 컴포넌트 모드: 템플릿 8종, 상태, 9-slice(계산·캔버스 가이드), 늘린 미리보기, 내보내기(PNG·JSON·CSS)
 src/editor/ai.js        AI 생성 (후보, 부분 다시 그리기, 팔레트 생성) + 웹 버전 기능 연결(initCapabilities)
 src/editor/init.js      이벤트 연결, 단축키, init()
 src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저장, 파일 다운로드, Anthropic API 호출, 캔버스 넣기·가져오기
@@ -43,7 +44,7 @@ docs/plan.html          기획서
 
 ## 구조에서 꼭 알아야 할 점
 
-**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → ai`) 다음에 Figma는 `platform/figma`, 마지막에 `init`입니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
+**모듈 시스템이 없습니다.** 빌드는 파일들을 순서대로 이어 붙여 `<script>` 하나로 만듭니다. 순서는 `scripts/build.mjs`의 `EDITOR` 목록(`core → ui → aseprite → timelapse → conv → recolor → comp → ai`) 다음에 Figma는 `platform/figma`, 마지막에 `init`입니다. 새 파일을 만들면 이 목록에 추가합니다. 모든 이름이 전역을 공유하므로 새 이름이 기존 것과 겹치지 않게 합니다. 예를 들어 `h()`는 DOM 헬퍼이므로 높이 변수는 `H`나 `hh`로 씁니다.
 
 **플랫폼 차이는 함수 재선언으로 바꿉니다.** 같은 스크립트 안에서는 나중에 선언된 `function`이 이깁니다. `platform/figma.js`는 다음을 다시 선언합니다.
 
@@ -64,16 +65,18 @@ doc = {
   name, w, h,                       // 캔버스 최대 256×256 (MAXSIZE)
   palette: ['#rrggbb', ...],        // 최대 62색 (MAXPAL, AI 문자표 0-9a-zA-Z 길이)
   layers: [{ id, name, visible, opacity, locked, alphaLock, outline }],  // 아래 → 위 순서. outline: 0 또는 팔레트 값
-  frames: [{ dur /*ms*/, cels: { [layerId]: Uint8Array(w*h) } }],
+  frames: [{ dur /*ms*/, name? /*컴포넌트 상태 이름*/, cels: { [layerId]: Uint8Array(w*h) } }],
+  comp?: { kind, slice: { l, t, r, b } | null, label },   // 있으면 UI 컴포넌트. slice는 9-slice 여백(원본 픽셀), null이면 고정 크기
   tags: [{ name, from, to /*0부터, 끝 포함*/, dir: 'forward'|'reverse'|'pingpong'|'pingpong_reverse' (TAGDIRS, Aseprite 파일의 번호 순서), color: '#rrggbb' }],
 }
 ```
 
 - **링크 셀**: 서로 다른 프레임의 `cels[id]`가 **같은 `Uint8Array` 객체**를 가리키면 링크된 셀입니다. 한쪽을 고치면 함께 바뀌고, `structuredClone`(히스토리)도 이 공유 관계를 보존합니다. 모든 cel을 도는 변경 루프는 같은 배열을 두 번 고치지 않도록 `Set`으로 중복을 걸러야 합니다(`remapAll` 참고). 프레임마다 다르게 써야 하는 작업은 먼저 링크를 풉니다(`mergeDown`이 아래 레이어를 그렇게 처리합니다). `isLinked`, `linkedWithPrev`, `unlinkCel`, `addFrame('empty'|'dup'|'link')`를 씁니다.
+- **UI 컴포넌트 모드** (`ui.mode==='comp'`, 상단 「도트 / UI 컴포넌트」): 화면 모드이고, 문서가 컴포넌트인지는 `doc.comp`로 정합니다. 프레임이 곧 상태(기본·호버·누름·비활성…)이고 `stateName(fi)`로 이름을 읽습니다. 템플릿은 `COMPKINDS`(그리는 함수와 기본 slice·상태 목록)에 있고, 색은 주 색상 하나에서 `compRoles`로 명암을 나눕니다(필요한 색은 팔레트에 추가). 9-slice 가이드는 `draw()`가 그리고, 포인터는 도구보다 먼저 `guideDown/Move/Up`이 받습니다. 끌기가 끝나면 한 번의 `docChange`로 기록합니다. 내보내기 상태 이름 중 `COMPCSS`에 있는 것(호버→`:hover`, 누름→`:active`, 비활성→`:disabled` 등)은 CSS 선택자가 됩니다.
 - **태그**: 프레임을 넣거나 지우면 `shiftTags`가 범위를 맞춥니다. 재생과 GIF는 `playSequence(range)`로 프레임 순서를 만듭니다. 핑퐁은 끝 프레임을 반복하지 않습니다(Aseprite와 같은 방식).
 
 - 픽셀 값 `0`은 투명, `v`는 `palette[v-1]`입니다(인덱스 컬러). 팔레트를 바꾸면 그림 전체가 바뀝니다. 색을 지우거나 순서를 바꿀 때는 `remapAll(map)`으로 모든 cel을 다시 매핑합니다.
-- 저장 형식(`serialize`/`deserialize`): `{format:'dotlab',version:2,...,tags}`이고, cel은 RLE 후 base64 문자열이거나, 링크면 `{link: 앞 프레임 번호}`입니다. version 1 파일(태그·링크 없음)도 그대로 읽습니다. 형식을 바꾸면 `version`을 올리고 이전 버전 읽기를 유지합니다. Figma에 넣은 개체의 `pluginData('dotlab')`에도 같은 문자열이 들어갑니다.
+- 저장 형식(`serialize`/`deserialize`): `{format:'dotlab',version:3,...,tags,comp}`이고(프레임에 `name`이 붙을 수 있음), cel은 RLE 후 base64 문자열이거나, 링크면 `{link: 앞 프레임 번호}`입니다. version 1·2 파일(태그·링크·컴포넌트 없음)도 그대로 읽습니다. 형식을 바꾸면 `version`을 올리고 이전 버전 읽기를 유지합니다. Figma에 넣은 개체의 `pluginData('dotlab')`에도 같은 문자열이 들어갑니다.
 
 ## 편집 규칙 (실행 취소와 다시 그리기)
 
@@ -90,7 +93,7 @@ doc = {
 | `autosave {data}` | 직렬화한 문서를 clientStorage에 저장 |
 | `set-key {key}` | API 키 저장(빈 문자열이면 삭제) |
 | `import-selection` | 선택 노드가 도트랩 개체면 `open-project`, 아니면 1배 PNG로 `import-image` |
-| `insert {mode, frames, w, h, frameNames, project, replaceId, palette}` | `vector`는 프레임마다 SVG 문자열과 `layerNames`, `image`는 PNG 바이트. `replaceId`가 있으면 그 자리에서 교체 |
+| `insert {mode, frames, w, h, frameNames, project, replaceId, palette, asComponents, note}` | `vector`는 프레임마다 SVG 문자열과 `layerNames`, `image`는 PNG 바이트. `replaceId`가 있으면 그 자리에서 교체. `asComponents`면 프레임마다 컴포넌트를 만들어 `combineAsVariants`로 세트를 만들고(`frameNames`가 `상태=기본` 꼴), `note`(9-slice 여백)를 설명에 넣음 |
 | `resize {w, h}` | 창 크기 (최소 720×520) |
 
 | 메인 → UI | 내용 |
@@ -138,6 +141,7 @@ doc = {
 | `tests/grid-detect.test.mjs` | 확대·잘림·JPG·2.5배·투명·1배 이미지에서 원본 격자와 픽셀을 100% 복원, 사진은 사진 모드 |
 | `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소 |
 | `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스(AI 단계 표시), 색감 옮기기(두 방식, 미리보기), 숨긴 그룹·사용자 데이터 태그 색·역방향 핑퐁 가져오기, 비어 있는 링크 셀 보존 |
+| `tests/component.test.mjs` | 컴포넌트 모드 전환·템플릿(상태 수·이름·서로 다른 그림), 9-slice 계산(모서리 1:1, 가장자리 늘림), 캔버스 가이드 끌기와 실행 취소, 숫자 입력·상태 이름·빈 상태, 저장 형식 v3와 v2 읽기, 내보내기 파일·JSON 여백·CSS 선택자, 고정 크기 컴포넌트, 지금 그림을 컴포넌트로, 폰 폭 |
 | `tests/figma-ui.test.mjs` | 가짜 Figma 호스트 안의 플러그인 창: 프로토콜, 벡터 SVG와 화면 일치, 다시 열기, 가져오기 격자 감지, 모의 API로 AI 스트리밍과 401 처리 |
 
 실제 Figma 앱과 실제 Anthropic API 호출은 자동 테스트에 없으므로 직접 확인해야 합니다.

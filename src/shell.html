@@ -7,7 +7,7 @@
 :root{
   --bg:#e8e8eb; --frame:#f6f6f7; --panel:#ffffff; --panel-2:#f2f2f4; --hover:#ebebee; --line:#e6e6ea; --fg:#18181c; --muted:#85858f;
   --accent:#1d1d22; --accent-fg:#ffffff; --accent-soft:#efeff2; --pop:#e0901c; --danger:#d4452b;
-  --raise-a:#ffffff; --raise-b:#f0f0f2; --raise-hi:rgba(255,255,255,.7); --shadow-sm:0 1px 2px rgba(16,16,24,.07),0 0 0 1px rgba(16,16,24,.05); --shadow:0 1px 2px rgba(16,16,24,.04),0 6px 20px rgba(16,16,24,.06); --shadow-lg:0 2px 6px rgba(16,16,24,.06),0 24px 60px rgba(16,16,24,.16);
+  --raise-a:#ffffff; --raise-b:#f0f0f2; --raise-hi:rgba(255,255,255,.7); --guide:#e5397a; --shadow-sm:0 1px 2px rgba(16,16,24,.07),0 0 0 1px rgba(16,16,24,.05); --shadow:0 1px 2px rgba(16,16,24,.04),0 6px 20px rgba(16,16,24,.06); --shadow-lg:0 2px 6px rgba(16,16,24,.06),0 24px 60px rgba(16,16,24,.16);
   --stage:#ececef; --check-a:#ffffff; --check-b:#ececf0; --grid:rgba(20,20,30,.08); --grid-major:rgba(20,20,30,.2); --ants:#18181c; --frame-edge:rgba(20,20,30,.22);
   --f-ui:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-pixel:"Silkscreen","JetBrains Mono",ui-monospace,monospace;
@@ -16,13 +16,13 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
   --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
-  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
+  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
   --stage:#0f0f12; --check-a:#26262b; --check-b:#1f1f24; --grid:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17); --ants:#ffffff; --frame-edge:rgba(255,255,255,.22);
   color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0b0b0d; --frame:#131316; --panel:#1b1b1f; --panel-2:#242429; --hover:#2c2c32; --line:#2a2a30; --fg:#ededf1; --muted:#8d8d98;
   --accent:#ededf1; --accent-fg:#141417; --accent-soft:#2a2a30; --pop:#f2b347; --danger:#f0805f;
-  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
+  --raise-a:#2e2e34; --raise-b:#26262b; --raise-hi:rgba(255,255,255,.06); --guide:#ff6fa3; --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 24px 60px rgba(0,0,0,.55);
   --stage:#0f0f12; --check-a:#26262b; --check-b:#1f1f24; --grid:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17); --ants:#ffffff; --frame-edge:rgba(255,255,255,.22);
   color-scheme:dark }
 
@@ -36,7 +36,7 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--acce
 
 #app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;min-width:0;background:var(--frame);border-radius:26px;padding:10px;box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(16,16,24,.04)}
 .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:var(--panel);border-radius:16px;padding:7px 8px 7px 14px;box-shadow:var(--shadow)}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;min-width:0}
 .logo{font-family:var(--f-pixel);font-size:15px;letter-spacing:.08em;color:var(--fg);white-space:nowrap}
 .name{width:150px;max-width:40vw;background:transparent;border:1px solid transparent;border-radius:9px;padding:4px 8px;font-weight:500}
 .name:hover,.name:focus{background:var(--panel-2)}
@@ -118,6 +118,17 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--acce
 .xarts{display:flex;gap:8px}
 .xarts canvas{width:76px;height:76px;image-rendering:pixelated;object-fit:contain;border-radius:10px;box-shadow:inset 0 0 0 1px var(--line)}
 canvas.thumb,.fcell canvas,.cand canvas,.convgrid canvas{image-rendering:pixelated;object-fit:contain}
+.fcell .fn.st{font-family:var(--f-ui);font-size:10.5px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+html[data-mode="comp"] .tab[data-tab="pConv"]{display:none}
+.compkinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.compkind{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px 6px;border:0;border-radius:12px;background:var(--panel-2);cursor:pointer;font-size:11.5px;min-width:0;transition:background .12s,box-shadow .12s}
+.compkind:hover{background:var(--panel);box-shadow:var(--shadow-sm)}
+.compkind canvas{width:44px;height:30px;image-rendering:pixelated;object-fit:contain;background:none}
+.compkind span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.row2.sl label{gap:4px}
+.compprev{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:10px;border-radius:14px;background:var(--panel-2)}
+.compprev figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.compprev canvas{image-rendering:pixelated;border-radius:4px}
 
 .side{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
 .card{background:var(--panel);border-radius:18px;min-height:0;display:flex;flex-direction:column;box-shadow:var(--shadow)}
@@ -245,7 +256,8 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
 
 <div id="app">
   <header class="top">
-    <div class="brand"><span class="logo">DOTLAB</span><input id="docName" class="name" aria-label="작품 이름" spellcheck="false"></div>
+    <div class="brand"><span class="logo">DOTLAB</span><input id="docName" class="name" aria-label="작품 이름" spellcheck="false">
+      <div class="group track" id="modeSwitch" role="group" aria-label="편집 모드"><button class="chip" data-mode="dot" aria-pressed="true" title="픽셀 아트를 그리고 애니메이션을 만듭니다">도트</button><button class="chip" data-mode="comp" aria-pressed="false" title="버튼·패널 같은 픽셀 UI 컴포넌트를 상태와 9-slice로 만듭니다">UI 컴포넌트</button></div></div>
     <div class="group">
       <button class="btn" id="bNew">새로 만들기</button>
       <button class="btn" id="bOpen" title="프로젝트(.json), 이미지, 팔레트 파일 열기">열기</button>
@@ -315,6 +327,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
           <button class="tab" role="tab" aria-selected="true" data-tab="pAI">AI 생성</button>
           <button class="tab" role="tab" aria-selected="false" data-tab="pConv">이미지 → 도트</button>
           <button class="tab" role="tab" aria-selected="false" data-tab="pRef">참조 이미지</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="pComp" id="tabComp" hidden>컴포넌트</button>
         </div>
 
         <div class="tabpanel" id="pAI" role="tabpanel">
@@ -383,6 +396,8 @@ input[type=file]::file-selector-button{font:inherit;font-weight:500;color:var(--
           </div>
           <div class="actions"><button class="btn primary" id="convOpen" disabled>새 캔버스로 열어 수정</button><button class="btn" id="convGo" disabled>현재 캔버스에 레이어로 넣기</button><button class="btn" id="convRef" disabled>참조 이미지로 쓰기</button></div>
         </div>
+
+        <div class="tabpanel" id="pComp" role="tabpanel" hidden></div>
 
         <div class="tabpanel" id="pRef" role="tabpanel" hidden>
           <p class="hint">따라 그릴 사진이나 그림을 캔버스에 겹쳐 띄웁니다. 참조 이미지는 저장과 내보내기에 포함되지 않습니다.</p>
