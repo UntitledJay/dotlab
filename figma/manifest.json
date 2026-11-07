@@ -4,13 +4,20 @@
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
-  "editorType": ["figma"],
+  "editorType": [
+    "figma"
+  ],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["https://api.anthropic.com"],
-    "reasoning": "AI 도트 생성 기능이 사용자가 입력한 Anthropic API 키로 Claude API를 호출합니다."
+    "allowedDomains": [
+      "https://api.anthropic.com"
+    ],
+    "reasoning": "AI generation only: calls the Claude API (api.anthropic.com) with the Anthropic API key the user enters. No other network access; every other feature works offline. / AI 생성 기능만 사용자가 입력한 Anthropic API 키로 Claude API를 호출합니다."
   },
   "relaunchButtons": [
-    { "command": "edit", "name": "도트랩에서 편집" }
+    {
+      "command": "edit",
+      "name": "도트랩에서 편집"
+    }
   ]
 }

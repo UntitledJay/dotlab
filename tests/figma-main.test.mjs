@@ -4,6 +4,7 @@ import assert from 'node:assert'; // loose deepEqual: vm-realm arrays have their
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { root } from './helpers.mjs';
+import { checkFigmaRelease } from '../scripts/check-figma-release.mjs';
 import { join } from 'node:path';
 
 // objects created inside the vm context have their own prototypes; compare plain copies
@@ -86,4 +87,11 @@ test('figma main thread', async () => {
   await on({ type: 'insert', mode: 'image', name: '패널', w: 48, h: 40, frames: [{ png: new Uint8Array(10) }], frameNames: ['상태=기본'], asComponents: true, note: 'n', project: '{}', palette: null });
   const one = page.children.find(n => n.id === sent.filter(x => x.type === 'inserted').pop().nodeId);
   assert.deepEqual([one.type, one.name, one.description], ['COMPONENT', '패널', 'n'], 'a single state is a plain component');
+});
+
+test('figma release check', () => {
+  // everything the Community release needs, except the id Figma issues (placeholder allowed here)
+  const r = checkFigmaRelease({ allowDevId: true });
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.requests, ['https://api.anthropic.com/v1/messages'], 'the plugin only calls the Anthropic API');
 });

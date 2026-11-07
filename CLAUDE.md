@@ -20,6 +20,7 @@ npm test                    # 빌드 후 테스트 7개 실행
 - Chromium을 따로 설치한 환경이면 `CHROMIUM_PATH=/path/to/chrome npm test`로 실행합니다.
 - 코드를 바꾸면 커밋 전에 `npm test`를 통과시킵니다.
 - **배포**: `main`에 푸시하면 `.github/workflows/pages.yml`이 테스트를 돌린 뒤 `dist/pages`를 `gh-pages` 브랜치에 올립니다(저장소 Settings → Pages → Deploy from a branch → `gh-pages` / root). 웹 아티팩트는 `dist/web/dotlab.html`을 Artifact로 다시 게시합니다.
+- **Figma Community 게시**: 절차는 `figma/README.md`의 「Figma Community에 게시하기」. `npm run figma:id -- <ID>`(Figma가 발급한 ID 넣기), `npm run figma:assets`(게시 이미지 `figma/publish/*.png`를 실제 화면으로 생성), `npm run figma:check`(manifest·허용 도메인·외부 리소스·샌드박스 문법·이미지 크기 점검). 게시 문구와 보안 공개 답변은 `figma/publish/listing.md`에 있고, 네트워크 요청을 바꾸면 이 문서와 manifest의 `reasoning`도 함께 고칩니다.
 - Figma 플러그인은 Figma 데스크톱 앱에서 Plugins → Development → Import plugin from manifest…로 `dist/figma/manifest.json`을 불러와 확인합니다.
 
 ## 폴더 구조
@@ -151,7 +152,7 @@ doc = {
 | --- | --- |
 | `tests/editor.test.mjs` | 픽셀 퍼펙트, 실행 취소, 도형·채우기·이동, 저장 왕복, GIF 디코딩과 LZW 무손실, 폰 폭 레이아웃 |
 | `tests/grid-detect.test.mjs` | 확대·잘림·JPG·2.5배·투명·1배 이미지에서 원본 격자와 픽셀을 100% 복원, 사진은 사진 모드 |
-| `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소 |
+| `tests/figma-main.test.mjs` | `figma` 모의 객체로 code.js의 넣기·교체·이름 붙이기·색 스타일·가져오기·저장소, 게시 점검(`check-figma-release`, 임시 ID만 허용) |
 | `tests/v1-features.test.mjs` | 링크 셀(공유·실행 취소·저장 왕복·팔레트 재매핑 한 번만), 태그(범위 이동·핑퐁/역방향 순서·태그 범위 GIF), `.aseprite` 쓰기를 독립 파서 `ase-parser`로 검증, 다시 읽어 원본과 일치, Aseprite가 저장한 실제 파일(`node_modules/ase-parser/indexed.aseprite`)을 독립 파서와 같은 픽셀로 가져오기, RGBA·그룹·링크·태그 파일 가져오기, 타임랩스(AI 단계 표시), 색감 옮기기(두 방식, 미리보기), 숨긴 그룹·사용자 데이터 태그 색·역방향 핑퐁 가져오기, 비어 있는 링크 셀 보존 |
 | `tests/component.test.mjs` | 컴포넌트 모드 전환·템플릿(상태 수·이름·서로 다른 그림), 9-slice 계산(모서리 1:1, 가장자리 늘림), 캔버스 가이드 끌기와 실행 취소, 숫자 입력·상태 이름·빈 상태, 저장 형식 v3와 v2 읽기, 내보내기 파일·JSON 여백·CSS 선택자, 고정 크기 컴포넌트, 지금 그림을 컴포넌트로, 모서리 잠금(연필·채우기가 테두리로 새지 않음, 도트 모드에선 풀림), 모양 옵션 다시 그리기와 실행 취소·직접 고친 안쪽 영역 유지, 안쪽 반복(타일)과 CSS padding·round, 내 컴포넌트 저장·덮어쓰기·새로 저장·열기·파일 왕복·삭제, 폰 폭 |
 | `tests/pages.test.mjs` | Pages 빌드가 완전한 문서인지, HTTP로 열어 오류 없이 뜨는지, AI 안내, 저장·PNG 내보내기가 실제 다운로드인지(내용 확인), 폰 폭 |
