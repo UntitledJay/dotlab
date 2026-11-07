@@ -23,7 +23,8 @@ export function buildWeb() {
   return html;
 }
 
-const FAVICON = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'><path fill='#18181c' d='M1 0h6v1h1v6h-1v1H1v-1H0V1h1z'/><path fill='#3d7be0' d='M1 1h6v6H1z'/><path fill='#9cc0f5' d='M2 2h2v2H2z'/></svg>");
+// app icon and favicon: assets/icon.png (128×128), copied next to the Pages document
+const ICON = 'assets/icon.png';
 
 // A complete document: the shell's <title>, fonts and styles go in <head>, the app in <body>.
 // The artifact host normally adds the reset ([hidden], margins); here the page carries it.
@@ -34,13 +35,14 @@ export function buildPages() {
   const html = '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n' +
     '<meta name="description" content="직접 찍고 다듬는 픽셀아트 에디터 — 레이어·애니메이션·.aseprite·타임랩스·픽셀 UI 컴포넌트">\n' +
-    `<link rel="icon" href="${FAVICON}">\n` + shell.slice(0, at) +
+    '<link rel="icon" type="image/png" href="icon.png">\n<link rel="apple-touch-icon" href="icon.png">\n' + shell.slice(0, at) +
     '<style>[hidden]{display:none!important}img{max-width:100%}</style>\n</head>\n<body>\n' + shell.slice(at) +
     '<script>\n' + editorJs(['src/platform/pages.js']) + '</script>\n</body>\n</html>\n';
   const out = join(root, 'dist/pages');
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'index.html'), html);
   writeFileSync(join(out, '.nojekyll'), '');
+  copyFileSync(join(root, ICON), join(out, 'icon.png'));
   return html;
 }
 

@@ -10,6 +10,8 @@ test('github pages build', async () => {
   const file = join(root, 'dist/pages/index.html');
   const html = readFileSync(file, 'utf8');
   assert.match(html, /^<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">/, 'a complete document');
+  assert.ok(html.includes('<link rel="icon" type="image/png" href="icon.png">') && html.includes('<link rel="apple-touch-icon" href="icon.png">'), 'favicon and app icon');
+  assert.deepEqual(readFileSync(join(root, 'dist/pages/icon.png')), readFileSync(join(root, 'assets/icon.png')), 'icon copied next to the page');
   assert.ok(html.indexOf('<title>') < html.indexOf('</head>') && html.indexOf('<style>') < html.indexOf('</head>'), 'title and styles in <head>');
 
   // served over HTTP like GitHub Pages (file:// pages have an opaque origin, which makes Chromium ignore download names)

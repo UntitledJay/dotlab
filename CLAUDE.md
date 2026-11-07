@@ -42,6 +42,7 @@ src/platform/figma.js   Figma 전용: postMessage 브리지, clientStorage 저�
 src/platform/figma.css  플러그인 창 전용 CSS
 src/platform/figma-keybox.html  AI 탭의 API 키 입력 칸
 src/platform/pages.js   GitHub Pages 전용: 파일 저장을 일반 다운로드(anchorDownload)로, AI는 안내 문구와 함께 끔
+assets/icon.png         앱 아이콘(128×128). Pages 파비콘·apple-touch-icon(dist/pages/icon.png로 복사), Figma 게시 아이콘(figma:assets가 figma/publish/icon.png로 복사)
 figma/                  플러그인 manifest.json, code.js(Figma 메인 스레드), README.md
 scripts/build.mjs       두 결과물 빌드
 tests/                  node:test + Playwright 테스트
